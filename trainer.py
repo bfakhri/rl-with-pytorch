@@ -10,7 +10,7 @@ import model
 env = gym.make('SpaceInvaders-v0')
 
 # Instantiate the model
-model = model.Model(env.action_space.n)
+model = model.Model(env.observation_space.shape, env.action_space.n) 
 
 # Gather first observation
 obs = env.reset()
@@ -31,11 +31,11 @@ while(episode < MAX_EPISODES):
     total_reward += reward
     episode_step += 1
     total_step += 1
-    env.render()
+    #env.render()
 
     # Episode has finished
     if(done):
-        print("Episode", str(episode), "finished after", episode_step, "steps with", str(episode_reward), "reward")
+        print("Episode", str(episode), "/", str(MAX_EPISODES), "finished after", episode_step, "steps with", str(episode_reward), "reward")
         episode += 1
         episode_step = 0
         episode_reward = 0
