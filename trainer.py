@@ -10,7 +10,7 @@ import model
 env = gym.make('SpaceInvaders-v0')
 
 # Instantiate the model
-model = model.Model(env.action_space.shape)
+model = model.Model(env.action_space.n)
 
 # Gather first observation
 obs = env.reset()

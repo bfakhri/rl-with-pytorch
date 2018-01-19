@@ -8,7 +8,7 @@ class Model():
     def act(self, obs):
         " Right now it is just a random agent"
         action = np.zeros(self.act_size, dtype=np.int)
-        act_idx = np.random.randint(0, len(action))
+        act_idx = np.random.randint(0, action.size)
         action[act_idx] = 1
         #return action
         return act_idx
