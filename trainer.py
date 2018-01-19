@@ -1,6 +1,11 @@
 import gym
 import model
 
+#class ReplayBuffer():
+#    def __init__():
+
+
+
 # Instantiate the Environment
 env = gym.make('SpaceInvaders-v0')
 
@@ -26,7 +31,7 @@ while(episode < MAX_EPISODES):
     total_reward += reward
     episode_step += 1
     total_step += 1
-    #env.render()
+    env.render()
 
     # Episode has finished
     if(done):
