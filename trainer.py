@@ -1,8 +1,17 @@
 import gym
 import model
+import numpy as np
 
 #class ReplayBuffer():
-#    def __init__():
+    def __init__(self, obs_shape):
+        # Number of steps in the buffer
+        self.n = 0
+        # Observations
+        shape_with_time = (1,) + obs_shape
+        self.obs = np.empty(shape_with_time, dtype=np.float)
+        # Rewards
+        self.r = np.empty((1,), dtype=np.float)
+
 
 
 
@@ -31,7 +40,7 @@ while(episode < MAX_EPISODES):
     total_reward += reward
     episode_step += 1
     total_step += 1
-    #env.render()
+    env.render()
 
     # Episode has finished
     if(done):
