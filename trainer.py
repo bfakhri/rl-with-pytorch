@@ -38,13 +38,13 @@ class ReplayBuffer():
 # Instantiate the Environment
 env = gym.make('SpaceInvaders-v0')
 
-# Instantiate the model and optimizer
-model = model.Model(env.observation_space.shape, env.action_space.n) 
 
 # Optimizer Params
 LR = 0.01
 MOMENTUM = 0.5
-optimizer = torch.optim.SGD(model.parameters(), lr=LR, momentum=MOMENTUM)
+
+# Instantiate the model and optimizer
+model = model.Model(env.observation_space.shape, env.action_space.n, LR, MOMENTUM) 
 
 # Instantiate replay buffer
 rp_buffer = ReplayBuffer(env.observation_space.shape, (env.action_space.n,)) 
@@ -71,14 +71,12 @@ while(episode < MAX_EPISODES):
     total_reward += reward
     episode_step += 1
     total_step += 1
-    env.render()
+    #env.render()
     # Add experience to replay buffer
     rp_buffer.append(obs, act_probs, reward)
     
     # Learn from experience and clear rp buffer
     if(total_step%nsteps_to_learn == 0):
-        # Clears Gradients
-        optimizer.zero_grad()
         # Calculates/Applies grads
         model.learn(rp_buffer)
         # Clears the replay buffer

@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class Model(torch.nn.Module):
-    def __init__(self, obs_shape, act_size):
+    def __init__(self, obs_shape, act_size, LR, momentum):
         # Number of possible actions
         self.act_size = act_size
         # Shape of the observations
@@ -23,6 +23,9 @@ class Model(torch.nn.Module):
         self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
         self.fc1 = nn.Linear(36260, 50)
         self.fc2 = nn.Linear(50, act_size)
+
+
+        self.optimizer = torch.optim.SGD(self.parameters(), lr=LR, momentum=momentum)
 
 
     def forward(self, x):
@@ -45,6 +48,8 @@ class Model(torch.nn.Module):
 
     def learn(self, replay_buffer):
         "Performs backprop w.r.t. the replay buffer"
+        # Clears Gradients
+        self.optimizer.zero_grad()
         discounted_reward = replay_buffer.discount(0.9)
         print(discounted_reward)
         return 0
