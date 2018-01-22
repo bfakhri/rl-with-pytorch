@@ -24,6 +24,7 @@ class Model(torch.nn.Module):
         self.fc1 = nn.Linear(36260, 50)
         self.fc2 = nn.Linear(50, act_size)
 
+
     def forward(self, x):
         x = F.relu(F.max_pool2d(self.conv1(x.permute(0,3,1,2)), 2))
         x = F.relu(F.max_pool2d(self.conv2(x), 2))
@@ -31,7 +32,6 @@ class Model(torch.nn.Module):
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
         x = F.softmax(x)
-        print(x)
         return x 
 
 
@@ -45,6 +45,8 @@ class Model(torch.nn.Module):
 
     def learn(self, replay_buffer):
         "Performs backprop w.r.t. the replay buffer"
+        discounted_reward = replay_buffer.discount(0.9)
+        print(discounted_reward)
         return 0
 
 

@@ -1,4 +1,6 @@
 import gym
+import math
+import torch
 import model
 import numpy as np
 
@@ -26,11 +28,24 @@ class ReplayBuffer():
 
         self.n += 1
 
+    def discount(self, lambd):
+        summer = 0
+        for i in range(self.n):
+            summer += math.pow(lambd, i)*self.rs[i]
+
+        return summer
+
 # Instantiate the Environment
 env = gym.make('SpaceInvaders-v0')
 
-# Instantiate the model
+# Instantiate the model and optimizer
 model = model.Model(env.observation_space.shape, env.action_space.n) 
+
+# Optimizer Params
+LR = 0.01
+MOMENTUM = 0.5
+optimizer = torch.optim.SGD(model.parameters(), lr=LR, momentum=MOMENTUM)
+
 # Instantiate replay buffer
 rp_buffer = ReplayBuffer(env.observation_space.shape, (env.action_space.n,)) 
 # Gather first observation
@@ -45,7 +60,7 @@ episode_step = 0
 total_step = 0
 episode_reward = 0
 total_reward = 0
-nsteps_to_learn = 40
+nsteps_to_learn = 100
 
 # Training loop
 while(episode < MAX_EPISODES):
@@ -62,7 +77,11 @@ while(episode < MAX_EPISODES):
     
     # Learn from experience and clear rp buffer
     if(total_step%nsteps_to_learn == 0):
+        # Clears Gradients
+        optimizer.zero_grad()
+        # Calculates/Applies grads
         model.learn(rp_buffer)
+        # Clears the replay buffer
         rp_buffer = ReplayBuffer(env.observation_space.shape, (env.action_space.n,))  
 
     # Episode has finished
