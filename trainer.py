@@ -23,7 +23,7 @@ class ReplayBuffer():
 
         else:
             self.obs = np.append(self.obs, np.expand_dims(ob, 0), axis=0)
-            self.acts = np.append(self.acts, np.expand_dims(act, 0), axis=0)
+            self.acts = np.append(self.acts, act, axis=0)
             self.rs = np.append(self.rs, r)
 
         self.n += 1
@@ -60,7 +60,7 @@ episode_step = 0
 total_step = 0
 episode_reward = 0
 total_reward = 0
-nsteps_to_learn = 100
+nsteps_to_learn = 10
 
 # Training loop
 while(episode < MAX_EPISODES):
@@ -71,7 +71,7 @@ while(episode < MAX_EPISODES):
     total_reward += reward
     episode_step += 1
     total_step += 1
-    #env.render()
+    env.render()
     # Add experience to replay buffer
     rp_buffer.append(obs, act_probs, reward)
     
