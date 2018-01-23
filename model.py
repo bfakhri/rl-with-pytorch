@@ -53,7 +53,7 @@ class Model(torch.nn.Module):
         discounted_reward = replay_buffer.discount(0.9)
         print(discounted_reward)
         policy_acts = self.forward(torch.autograd.Variable(torch.Tensor(replay_buffer.obs)))
-        policy_loss = (policy_acts*discounted_reward).mean()
+        policy_loss = (-policy_acts*discounted_reward).mean()
         policy_loss.backward()
         self.optimizer.step()
 

@@ -60,7 +60,7 @@ episode_step = 0
 total_step = 0
 episode_reward = 0
 total_reward = 0
-nsteps_to_learn = 10
+nsteps_to_learn = 100
 
 # Training loop
 while(episode < MAX_EPISODES):
