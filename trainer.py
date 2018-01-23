@@ -4,34 +4,28 @@ import torch
 import model
 import numpy as np
 
+# Holds data as torch tensors 
 class ReplayBuffer():
-    def __init__(self, obs_shape, act_shape):
+    def __init__(self, buff_len, obs_shape, act_shape):
         # Number of steps in the buffer
         self.n = 0
         # Observations
-        self.obs = np.empty((1,) + obs_shape, dtype=np.float)
+        self.observations = torch.zeros(buff_len, *obs_shape) 
         # Actions
-        self.acts = np.empty((1,) + act_shape, dtype=np.float)
+        self.actions = torch.zeros(buff_len, act_shape) 
         # Rewards
-        self.rs = np.empty((1,), dtype=np.float)
+        self.rewards = torch.zeros(buff_len)
 
     def append(self, ob, act, r):
-        if(self.n == 0):
-            self.obs[0] = ob
-            self.acts[0] = act
-            self.rs[0] = r
-
-        else:
-            self.obs = np.append(self.obs, np.expand_dims(ob, 0), axis=0)
-            self.acts = np.append(self.acts, act, axis=0)
-            self.rs = np.append(self.rs, r)
-
+        self.observations[self.n] = ob
+        self.actions[self.n] = act
+        self.rewards[self.n] = r
         self.n += 1
 
     def discount(self, lambd):
         summer = 0
         for i in range(self.n):
-            summer += math.pow(lambd, i)*self.rs[i]
+            summer += math.pow(lambd, i)*self.rewards[i]
 
         return summer
 
@@ -46,13 +40,9 @@ MOMENTUM = 0.5
 # Instantiate the model and optimizer
 model = model.Model(env.observation_space.shape, env.action_space.n, LR, MOMENTUM) 
 
-# Instantiate replay buffer
-rp_buffer = ReplayBuffer(env.observation_space.shape, (env.action_space.n,)) 
-# Gather first observation
-obs = env.reset()
 
 # Training Limits
-MAX_EPISODES = 10
+MAX_EPISODES = 100000
 
 # Training Loop
 episode = 0
@@ -62,25 +52,31 @@ episode_reward = 0
 total_reward = 0
 nsteps_to_learn = 100
 
+# Instantiate replay buffer
+rp_buffer = ReplayBuffer(nsteps_to_learn, env.observation_space.shape, env.action_space.n) 
+
+# Gather first observation
+obs = env.reset()/255
 # Training loop
 while(episode < MAX_EPISODES):
-    act_probs = model.act_probs(obs)
-    action = np_argmax = np.argmax(act_probs)
-    obs, reward, done, info = env.step(action)
+    act_probs = model.act_probs(torch.from_numpy(obs))
+    val, idx = torch.max(act_probs, 0)
+    observation, reward, done, info = env.step(idx.numpy()[0])
+    obs = observation/255   # Converts to float
     episode_reward += reward
     total_reward += reward
     episode_step += 1
     total_step += 1
     #env.render()
     # Add experience to replay buffer
-    rp_buffer.append(obs, act_probs, reward)
+    rp_buffer.append(torch.from_numpy(obs), act_probs, reward)
     
     # Learn from experience and clear rp buffer
     if(total_step%nsteps_to_learn == 0):
         # Calculates/Applies grads
         model.learn(rp_buffer)
         # Clears the replay buffer
-        rp_buffer = ReplayBuffer(env.observation_space.shape, (env.action_space.n,))  
+        rp_buffer = ReplayBuffer(nsteps_to_learn, env.observation_space.shape, env.action_space.n) 
 
     # Episode has finished
     if(done):

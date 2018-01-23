@@ -41,9 +41,8 @@ class Model(torch.nn.Module):
 
     def act_probs(self, obs):
         " Right now it is just a random agent"
-        #obs_torch = torch.autograd.Variable(torch.Tensor.float(torch.from_numpy(obs.reshape(-1))))
-        obs_torch = torch.autograd.Variable(torch.Tensor.float(torch.from_numpy(obs).unsqueeze(0)))
-        policy_output = self.forward(obs_torch).data.numpy()
+        obs_torch = torch.autograd.Variable(obs.unsqueeze(0))
+        policy_output = self.forward(obs_torch.float()).data
         return policy_output 
 
     def learn(self, replay_buffer):
@@ -52,7 +51,7 @@ class Model(torch.nn.Module):
         self.optimizer.zero_grad()
         discounted_reward = replay_buffer.discount(0.9)
         print(discounted_reward)
-        policy_acts = self.forward(torch.autograd.Variable(torch.Tensor(replay_buffer.obs)))
+        policy_acts = self.forward(torch.autograd.Variable(replay_buffer.observations))
         policy_loss = (-policy_acts*discounted_reward).mean()
         policy_loss.backward()
         self.optimizer.step()
