@@ -60,8 +60,9 @@ obs = env.reset()/255
 # Training loop
 while(episode < MAX_EPISODES):
     act_probs = model.act_probs(torch.from_numpy(obs))
-    val, idx = torch.max(act_probs, 0)
+    val, idx = torch.max(act_probs,dim=1)
     observation, reward, done, info = env.step(idx.numpy()[0])
+    print(idx.numpy()[0])
     obs = observation/255   # Converts to float
     episode_reward += reward
     total_reward += reward

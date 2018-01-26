@@ -50,7 +50,7 @@ class Model(torch.nn.Module):
         # Clears Gradients
         self.optimizer.zero_grad()
         discounted_reward = replay_buffer.discount(0.9)
-        print(discounted_reward)
+        print("Discounted Reward: ", discounted_reward)
         policy_acts = self.forward(torch.autograd.Variable(replay_buffer.observations))
         policy_loss = (-policy_acts*discounted_reward).mean()
         policy_loss.backward()
