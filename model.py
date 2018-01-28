@@ -43,8 +43,8 @@ class Model(torch.nn.Module):
     def act_probs(self, obs):
         " Right now it is just a random agent"
         obs_torch = torch.autograd.Variable(obs.unsqueeze(0))
-        policy_output = self.forward(obs_torch.float()).data
-        return policy_output 
+        policy_output, reward_estimate = self.forward(obs_torch.float())
+        return policy_output.data
 
     def learn(self, replay_buffer):
         "Performs backprop w.r.t. the replay buffer"
@@ -55,9 +55,10 @@ class Model(torch.nn.Module):
         policy_acts, expected_reward = self.forward(torch.autograd.Variable(replay_buffer.observations))
         advantage = discounted_reward - expected_reward
         policy_loss = (policy_acts*advantage).mean()
+        print(advantage)
         critic_loss = advantage.mean()
-        policy_loss.backward()
-        critic_loss.backward()
+        total_loss = policy_loss - critic_loss
+        total_loss.backward()
         self.optimizer.step()
 
         return 0
