@@ -50,7 +50,7 @@ episode_step = 0
 total_step = 0
 episode_reward = 0
 total_reward = 0
-nsteps_to_learn = 100
+nsteps_to_learn = 10 
 
 # Instantiate replay buffer
 rp_buffer = ReplayBuffer(nsteps_to_learn, env.observation_space.shape, env.action_space.n) 

@@ -22,8 +22,8 @@ class Model(torch.nn.Module):
         self.conv1 = nn.Conv2d(3, 10, kernel_size=5)
         self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
         self.fc1 = nn.Linear(36260, 50)
-        self.fc2 = nn.Linear(50, act_size)
-
+        self.fc_act = nn.Linear(50, act_size)
+        self.fc_adv= nn.Linear(50, 1)
 
         self.optimizer = torch.optim.SGD(self.parameters(), lr=LR, momentum=momentum)
 
@@ -33,9 +33,10 @@ class Model(torch.nn.Module):
         x = F.relu(F.max_pool2d(self.conv2(x), 2))
         x = x.view(-1, 36260)
         x = F.relu(self.fc1(x))
-        x = self.fc2(x)
-        x = F.softmax(x)
-        return x 
+        act = self.fc_act(x)
+        act = F.softmax(act)
+        adv = self.fc_adv(x)
+        return act, adv
 
 
 
@@ -51,9 +52,12 @@ class Model(torch.nn.Module):
         self.optimizer.zero_grad()
         discounted_reward = replay_buffer.discount(0.9)
         print("Discounted Reward: ", discounted_reward)
-        policy_acts = self.forward(torch.autograd.Variable(replay_buffer.observations))
-        policy_loss = (-policy_acts*discounted_reward).mean()
+        policy_acts, expected_reward = self.forward(torch.autograd.Variable(replay_buffer.observations))
+        advantage = discounted_reward - expected_reward
+        policy_loss = (policy_acts*advantage).mean()
+        critic_loss = advantage.mean()
         policy_loss.backward()
+        critic_loss.backward()
         self.optimizer.step()
 
         return 0
