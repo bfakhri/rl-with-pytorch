@@ -70,7 +70,7 @@ while(episode < MAX_EPISODES):
     act_taken_v[act_taken] = 1
     #print("Act taken", act_taken)
     observation, reward, done, info = env.step(act_taken.numpy()[0])
-    print(act_taken.numpy()[0])
+    #print(act_taken.numpy()[0])
     obs = observation/255   # Converts to float
     episode_reward += reward
     total_reward += reward
