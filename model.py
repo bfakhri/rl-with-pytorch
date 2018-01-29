@@ -56,8 +56,8 @@ class Model(torch.nn.Module):
         advantage = discounted_reward - expected_reward
         policy_loss = (policy_acts*advantage).mean()
         print(advantage)
-        critic_loss = advantage.mean()
-        total_loss = policy_loss - critic_loss
+        critic_loss = torch.abs(advantage).mean()
+        total_loss = policy_loss + critic_loss
         total_loss.backward()
         self.optimizer.step()
 

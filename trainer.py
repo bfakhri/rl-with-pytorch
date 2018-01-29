@@ -34,7 +34,7 @@ env = gym.make('SpaceInvaders-v0')
 
 
 # Optimizer Params
-LR = 0.01
+LR = 0.0001
 MOMENTUM = 0.5
 
 # Instantiate the model and optimizer
