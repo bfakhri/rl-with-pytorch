@@ -11,13 +11,16 @@ class ReplayBuffer():
         self.n = 0
         # Observations
         self.observations = torch.zeros(buff_len, *obs_shape) 
-        # Actions
+        # Action Probabilities
+        self.action_probs = torch.zeros(buff_len, act_shape) 
+        # Actions (a one-hot representation of what action was chosen)
         self.actions = torch.zeros(buff_len, act_shape) 
         # Rewards
         self.rewards = torch.zeros(buff_len)
 
-    def append(self, ob, act, r):
+    def append(self, ob, act_prob, act, r):
         self.observations[self.n] = ob
+        self.action_probs[self.n] = act_prob
         self.actions[self.n] = act
         self.rewards[self.n] = r
         self.n += 1
@@ -60,9 +63,14 @@ obs = env.reset()/255
 # Training loop
 while(episode < MAX_EPISODES):
     act_probs = model.act_probs(torch.from_numpy(obs))
-    val, idx = torch.max(act_probs,dim=1)
-    observation, reward, done, info = env.step(idx.numpy()[0])
-    print(idx.numpy()[0])
+    #val, idx = torch.max(act_probs,dim=1)
+    distrib = torch.distributions.Categorical(probs=act_probs)
+    act_taken = distrib.sample()
+    act_taken_v = torch.zeros(env.action_space.n)
+    act_taken_v[act_taken] = 1
+    #print("Act taken", act_taken)
+    observation, reward, done, info = env.step(act_taken.numpy()[0])
+    print(act_taken.numpy()[0])
     obs = observation/255   # Converts to float
     episode_reward += reward
     total_reward += reward
@@ -70,7 +78,7 @@ while(episode < MAX_EPISODES):
     total_step += 1
     #env.render()
     # Add experience to replay buffer
-    rp_buffer.append(torch.from_numpy(obs), act_probs, reward)
+    rp_buffer.append(torch.from_numpy(obs), act_probs, act_taken_v, reward)
     
     # Learn from experience and clear rp buffer
     if(total_step%nsteps_to_learn == 0):
