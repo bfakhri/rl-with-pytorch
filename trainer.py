@@ -33,7 +33,8 @@ class ReplayBuffer():
         return summer
 
 # Instantiate the Environment
-env = gym.make('SpaceInvaders-v0')
+#env = gym.make('SpaceInvaders-v0')
+env = gym.make('Pong-v0')
 
 
 # Optimizer Params
@@ -53,7 +54,7 @@ episode_step = 0
 total_step = 0
 episode_reward = 0
 total_reward = 0
-nsteps_to_learn = 55 
+nsteps_to_learn = 1000
 
 # Instantiate replay buffer
 rp_buffer = ReplayBuffer(nsteps_to_learn, env.observation_space.shape, env.action_space.n) 
