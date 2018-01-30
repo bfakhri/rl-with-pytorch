@@ -54,10 +54,14 @@ class Model(torch.nn.Module):
         #print("Discounted Reward: ", discounted_reward)
         policy_acts, expected_reward = self.forward(torch.autograd.Variable(replay_buffer.observations))
         advantage = discounted_reward - expected_reward
-        policy_loss = -(policy_acts*advantage).mean()
+        #print(policy_acts)
+        #print(replay_buffer.actions)
+        action_diff = torch.autograd.Variable(torch.abs(policy_acts.data - replay_buffer.actions))
+        policy_loss = (action_diff*advantage).mean()
         #print(advantage)
         critic_loss = torch.abs(advantage).mean()
         #print("Policy Loss", policy_loss, "\tCritic Loss", critic_loss)
+        #print(critic_loss)
         total_loss = policy_loss + critic_loss
         total_loss.backward()
         self.optimizer.step()
