@@ -76,4 +76,7 @@ class Model(torch.nn.Module):
         # Applies the gradients
         self.optimizer.step()
 
+        # Returns values for summary writer
+        return policy_loss.data.numpy()[0], critic_loss.data.numpy()[0], total_loss.data.numpy()[0], discounted_reward
+
 

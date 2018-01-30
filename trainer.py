@@ -4,6 +4,9 @@ import torch
 import model
 import numpy as np
 
+# Using TensorBoardX for PyTorch: https://github.com/lanpa/tensorboard-pytorch
+import tensorboardX as tbx
+
 
 class ReplayBuffer():
     """This class stores gameplay data as torch tensors"""
@@ -39,10 +42,12 @@ class ReplayBuffer():
 
         return summer
 
+# Instantiate the summary writer for tensorboard visualization
+tb_writer = tbx.SummaryWriter()
+
 # Instantiate the Environment
 #env = gym.make('SpaceInvaders-v0')
 env = gym.make('Pong-v0')
-
 
 # Optimizer Params
 LR = 0.01
@@ -96,13 +101,25 @@ while(episode < MAX_EPISODES):
     # Learn from experience and clear rp buffer
     if(total_step%nsteps_to_learn == 0):
         # Calculates/Applies grads
-        model.learn(rp_buffer)
+        pl, cl, tl, dr = model.learn(rp_buffer)
+        # Write outputs out for visualization
+        tb_writer.add_scalar('Loss/PolicyLoss', pl, total_step) 
+        tb_writer.add_scalar('Loss/CriticLoss', cl, total_step) 
+        tb_writer.add_scalar('Loss/TotalLoss', tl, total_step) 
+        tb_writer.add_scalar('Rewards/DiscountedReward', dr, total_step) 
         # Clears the replay buffer
         rp_buffer = ReplayBuffer(nsteps_to_learn, env.observation_space.shape, env.action_space.n) 
 
     # Episode has finished
     if(done):
+        # Write out for tensorboard
+        tb_writer.add_scalar('Rewards/EpisodeReward', episode_reward, total_step) 
+        tb_writer.add_scalar('Rewards/RewardPerStep', episode_reward/episode_step, total_step) 
+        tb_writer.add_scalar('Aux/EpisodeSteps', episode_step, total_step) 
+        tb_writer.add_scalar('Aux/Progress', 1-episode/MAX_EPISODES, total_step) 
         print("Episode", str(episode), "/", str(MAX_EPISODES), "finished after", episode_step, "steps with", str(episode_reward), "reward")
+
+        # Update/Reset metrics
         episode += 1
         episode_step = 0
         episode_reward = 0
