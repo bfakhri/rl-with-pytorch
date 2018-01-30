@@ -13,9 +13,6 @@ class Model(torch.nn.Module):
         # to do shape manipulations
         dummy_obs = np.ndarray(obs_shape)
         flat_obs = dummy_obs.reshape(-1)
-        # Neural Network that defines the policy
-        #nn_out = torch.nn.Linear(len(flat_obs), act_size)
-        #self.policy = torch.nn.functional.softmax(nn_out) 
 
         # Neural Network that defines the policy
         super(Model, self).__init__()
@@ -25,10 +22,15 @@ class Model(torch.nn.Module):
         self.fc_act = nn.Linear(50, act_size)
         self.fc_adv= nn.Linear(50, 1)
 
+        # Optimizer that performs the gradient step
         self.optimizer = torch.optim.SGD(self.parameters(), lr=LR, momentum=momentum)
 
 
     def forward(self, x):
+        "Takes in an observation and returns action probabilities and
+        an estimate of the maximum discounted reward attainable 
+        from the current state"
+
         x = F.relu(F.max_pool2d(self.conv1(x.permute(0,3,1,2)), 2))
         x = F.relu(F.max_pool2d(self.conv2(x), 2))
         x = x.view(-1, 36260)
@@ -39,33 +41,35 @@ class Model(torch.nn.Module):
         return act, adv
 
 
-
     def act_probs(self, obs):
-        " Right now it is just a random agent"
+        " Returns the action probabilities given an observation"
+
         obs_torch = torch.autograd.Variable(obs.unsqueeze(0))
         policy_output, reward_estimate = self.forward(obs_torch.float())
         return policy_output.data
 
     def learn(self, replay_buffer):
         "Performs backprop w.r.t. the replay buffer"
+        
         # Clears Gradients
         self.optimizer.zero_grad()
+        # Calculates the discounted reward
         discounted_reward = replay_buffer.discount(0.9)
-        #print("Discounted Reward: ", discounted_reward)
+        # Performs a foward step through the model
         policy_acts, expected_reward = self.forward(torch.autograd.Variable(replay_buffer.observations))
+        # Advantage (diff b/t the actual discounted reward and the expected)
         advantage = discounted_reward - expected_reward
-        #print(policy_acts)
-        #print(replay_buffer.actions)
+        # Difference between the action probabilities and the chosen action
         action_diff = torch.autograd.Variable(torch.abs(policy_acts.data - replay_buffer.actions))
+        # Policy loss (encourages behavior in buffer if advantage is positive and vice-a-versa
         policy_loss = (action_diff*advantage).mean()
-        #print(advantage)
+        # Critic loss (same as advantage) 
         critic_loss = torch.abs(advantage).mean()
-        #print("Policy Loss", policy_loss, "\tCritic Loss", critic_loss)
-        #print(critic_loss)
+        # Sums the individual losses
         total_loss = policy_loss + critic_loss
+        # Calculates gradients w.r.t. all weights in the model
         total_loss.backward()
+        # Applies the gradients
         self.optimizer.step()
-
-        return 0
 
 
