@@ -4,8 +4,10 @@ import torch
 import model
 import numpy as np
 
-# Holds data as torch tensors 
+
 class ReplayBuffer():
+    "This class stores gameplay data as torch tensors"
+
     def __init__(self, buff_len, obs_shape, act_shape):
         # Number of steps in the buffer
         self.n = 0
@@ -19,6 +21,8 @@ class ReplayBuffer():
         self.rewards = torch.zeros(buff_len)
 
     def append(self, ob, act_prob, act, r):
+        "Adds new data to buffer"
+
         self.observations[self.n] = ob
         self.action_probs[self.n] = act_prob
         self.actions[self.n] = act
@@ -26,6 +30,9 @@ class ReplayBuffer():
         self.n += 1
 
     def discount(self, lambd):
+        "Returns the discounted reward parameterized by 'lambd'"
+
+        # There is probably a more torch-like way to do this
         summer = 0
         for i in range(self.n):
             summer += math.pow(lambd, i)*self.rewards[i]
@@ -64,20 +71,25 @@ obs = env.reset()/255
 # Training loop
 while(episode < MAX_EPISODES):
     act_probs = model.act_probs(torch.from_numpy(obs))
-    #val, idx = torch.max(act_probs,dim=1)
     distrib = torch.distributions.Categorical(probs=act_probs)
+    # Samples from the categorical distribution to determine action to take
     act_taken = distrib.sample()
     act_taken_v = torch.zeros(env.action_space.n)
     act_taken_v[act_taken] = 1
-    #print("Act taken", act_taken)
+
+    # Takes the action
     observation, reward, done, info = env.step(act_taken.numpy()[0])
-    #print(act_taken.numpy()[0])
+
+    # Perform book-keeping
     obs = observation/255   # Converts to float
     episode_reward += reward
     total_reward += reward
     episode_step += 1
     total_step += 1
+
+    # Renders the game to screen
     #env.render()
+
     # Add experience to replay buffer
     rp_buffer.append(torch.from_numpy(obs), act_probs, act_taken_v, reward)
     
