@@ -42,6 +42,11 @@ class ReplayBuffer():
 
         return summer
 
+    def actions_scalar(self):
+        """Returns array of scalars corresponding to the actions taken"""
+        values, actions_s = torch.max(self.actions, dim=1)
+        return actions_s
+
 # Instantiate the summary writer for tensorboard visualization
 tb_writer = tbx.SummaryWriter()
 
@@ -107,6 +112,8 @@ while(episode < MAX_EPISODES):
         tb_writer.add_scalar('Loss/CriticLoss', cl, total_step) 
         tb_writer.add_scalar('Loss/TotalLoss', tl, total_step) 
         tb_writer.add_scalar('Rewards/DiscountedReward', dr, total_step) 
+        tb_writer.add_histogram('Actions/ActionsTaken', rp_buffer.actions_scalar(), total_step) # Doesn't work properly, must fix
+
         # Clears the replay buffer
         rp_buffer = ReplayBuffer(nsteps_to_learn, env.observation_space.shape, env.action_space.n) 
 
