@@ -27,9 +27,9 @@ class Model(torch.nn.Module):
 
 
     def forward(self, x):
-        "Takes in an observation and returns action probabilities and
+        """Takes in an observation and returns action probabilities and
         an estimate of the maximum discounted reward attainable 
-        from the current state"
+        from the current state"""
 
         x = F.relu(F.max_pool2d(self.conv1(x.permute(0,3,1,2)), 2))
         x = F.relu(F.max_pool2d(self.conv2(x), 2))
@@ -42,14 +42,14 @@ class Model(torch.nn.Module):
 
 
     def act_probs(self, obs):
-        " Returns the action probabilities given an observation"
+        """Returns the action probabilities given an observation"""
 
         obs_torch = torch.autograd.Variable(obs.unsqueeze(0))
         policy_output, reward_estimate = self.forward(obs_torch.float())
         return policy_output.data
 
     def learn(self, replay_buffer):
-        "Performs backprop w.r.t. the replay buffer"
+        """Performs backprop w.r.t. the replay buffer"""
         
         # Clears Gradients
         self.optimizer.zero_grad()
@@ -67,6 +67,10 @@ class Model(torch.nn.Module):
         critic_loss = torch.abs(advantage).mean()
         # Sums the individual losses
         total_loss = policy_loss + critic_loss
+
+        # Debugging
+        print("Policy:", policy_loss.data.numpy()[0], "\tCritic: ", critic_loss.data.numpy()[0], "\tTotalLoss: ", total_loss.data.numpy()[0], "\tDiscRew: ", discounted_reward)
+
         # Calculates gradients w.r.t. all weights in the model
         total_loss.backward()
         # Applies the gradients

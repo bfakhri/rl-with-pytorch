@@ -45,7 +45,7 @@ env = gym.make('Pong-v0')
 
 
 # Optimizer Params
-LR = 0.0001
+LR = 0.01
 MOMENTUM = 0.5
 
 # Instantiate the model and optimizer
