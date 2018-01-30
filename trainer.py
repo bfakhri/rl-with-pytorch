@@ -55,8 +55,10 @@ tb_writer = tbx.SummaryWriter()
 env = gym.make('Pong-v0')
 
 # Optimizer Params
-LR = 0.01
+LR = 0.0001
 MOMENTUM = 0.5
+tb_writer.add_scalar('HyperParams/LR', LR, 0) 
+tb_writer.add_scalar('HyperParams/Momentum', MOMENTUM, 0) 
 
 # Instantiate the model and optimizer
 model = model.Model(env.observation_space.shape, env.action_space.n, LR, MOMENTUM) 
@@ -71,7 +73,7 @@ episode_step = 0
 total_step = 0
 episode_reward = 0
 total_reward = 0
-nsteps_to_learn = 64
+nsteps_to_learn = 20
 
 # Instantiate replay buffer
 rp_buffer = ReplayBuffer(nsteps_to_learn, env.observation_space.shape, env.action_space.n) 
