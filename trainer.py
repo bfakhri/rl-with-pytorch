@@ -7,6 +7,8 @@ import numpy as np
 # Using TensorBoardX for PyTorch: https://github.com/lanpa/tensorboard-pytorch
 import tensorboardX as tbx
 
+# Instantiate the summary writer for tensorboard visualization
+tb_writer = tbx.SummaryWriter()
 
 class ReplayBuffer():
     """This class stores gameplay data as torch tensors"""
@@ -47,9 +49,6 @@ class ReplayBuffer():
         values, actions_s = torch.max(self.actions, dim=1)
         return actions_s
 
-# Instantiate the summary writer for tensorboard visualization
-tb_writer = tbx.SummaryWriter()
-
 # Instantiate the Environment
 #env = gym.make('SpaceInvaders-v0')
 env = gym.make('Pong-v0')
@@ -62,6 +61,12 @@ tb_writer.add_scalar('HyperParams/Momentum', MOMENTUM, 0)
 
 # Instantiate the model and optimizer
 model = model.Model(env.observation_space.shape, env.action_space.n, LR, MOMENTUM) 
+#model.cuda() # puts all variables on the GPU
+
+# Add model to the graph
+#dummy = torch.Variable(
+#tb_writer.add_graph(model, model.variables())
+
 
 
 # Training Limits
