@@ -45,7 +45,8 @@ class Model(torch.nn.Module):
         """Returns the action probabilities given an observation"""
 
         obs_torch = torch.autograd.Variable(obs.unsqueeze(0))
-        policy_output, reward_estimate = self.forward(obs_torch.float())
+        #policy_output, reward_estimate = self.forward(obs_torch.float())
+        policy_output, reward_estimate = self(obs_torch.float())
         return policy_output.data
 
     def learn(self, replay_buffer):
