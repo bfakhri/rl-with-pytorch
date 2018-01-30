@@ -45,7 +45,6 @@ class Model(torch.nn.Module):
         """Returns the action probabilities given an observation"""
 
         obs_torch = torch.autograd.Variable(obs.unsqueeze(0))
-        #policy_output, reward_estimate = self.forward(obs_torch.float())
         policy_output, reward_estimate = self(obs_torch.float())
         return policy_output.data
 
@@ -57,7 +56,7 @@ class Model(torch.nn.Module):
         # Calculates the discounted reward
         discounted_reward = replay_buffer.discount(0.99)
         # Performs a foward step through the model
-        policy_acts, expected_reward = self.forward(torch.autograd.Variable(replay_buffer.observations))
+        policy_acts, expected_reward = self(torch.autograd.Variable(replay_buffer.observations))
         # Advantage (diff b/t the actual discounted reward and the expected)
         advantage = discounted_reward - expected_reward
         # Difference between the action probabilities and the chosen action
