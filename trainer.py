@@ -6,7 +6,7 @@ import numpy as np
 
 
 class ReplayBuffer():
-    "This class stores gameplay data as torch tensors"
+    """This class stores gameplay data as torch tensors"""
 
     def __init__(self, buff_len, obs_shape, act_shape):
         # Number of steps in the buffer
@@ -21,7 +21,7 @@ class ReplayBuffer():
         self.rewards = torch.zeros(buff_len)
 
     def append(self, ob, act_prob, act, r):
-        "Adds new data to buffer"
+        """Adds new data to buffer"""
 
         self.observations[self.n] = ob
         self.action_probs[self.n] = act_prob
@@ -30,7 +30,7 @@ class ReplayBuffer():
         self.n += 1
 
     def discount(self, lambd):
-        "Returns the discounted reward parameterized by 'lambd'"
+        """Returns the discounted reward parameterized by 'lambd'"""
 
         # There is probably a more torch-like way to do this
         summer = 0
