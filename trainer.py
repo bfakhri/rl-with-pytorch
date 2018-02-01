@@ -87,12 +87,8 @@ rp_buffer = ReplayBuffer(nsteps_to_learn, env.observation_space.shape, env.actio
 obs = env.reset()/255
 # Training loop
 while(episode < MAX_EPISODES):
-    act_probs = model.act_probs(torch.from_numpy(obs))
-    distrib = torch.distributions.Categorical(probs=act_probs)
-    # Samples from the categorical distribution to determine action to take
-    act_taken = distrib.sample()
-    act_taken_v = torch.zeros(env.action_space.n)
-    act_taken_v[act_taken] = 1
+    # Asks the model for the action
+    act_taken, act_taken_v, act_probs = model.act_stochastic(obs)
 
     # Takes the action
     observation, reward, done, info = env.step(act_taken.numpy()[0])

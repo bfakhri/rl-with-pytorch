@@ -48,6 +48,15 @@ class Model(torch.nn.Module):
         policy_output, reward_estimate = self(obs_torch.float())
         return policy_output.data
 
+    def act_stochastic(self, obs):
+        act_probs = self.act_probs(torch.from_numpy(obs))
+        distrib = torch.distributions.Categorical(probs=act_probs)
+        # Samples from the categorical distribution to determine action to take
+        act_taken = distrib.sample()
+        act_taken_v = torch.zeros(self.act_size)
+        act_taken_v[act_taken] = 1
+        return act_taken, act_taken_v, act_probs
+
     def learn(self, replay_buffer):
         """Performs backprop w.r.t. the replay buffer"""
         
