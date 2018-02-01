@@ -6,9 +6,20 @@ import numpy as np
 
 # Using TensorBoardX for PyTorch: https://github.com/lanpa/tensorboard-pytorch
 import tensorboardX as tbx
-
 # Instantiate the summary writer for tensorboard visualization
 tb_writer = tbx.SummaryWriter()
+
+cuda = True
+#cuda = False 
+
+def torcher(arr_to_torch):
+    """Converts the input to the proper torch tensor, whether that is 
+    a cuda torch tensor or a regular torch tensor"""
+    if(cuda):
+        return torch.from_numpy(arr_to_torch).cuda().float()
+    else:
+        return torch.from_numpy(arr_to_torch).float()
+
 
 class ReplayBuffer():
     """This class stores gameplay data as torch tensors"""
@@ -17,13 +28,13 @@ class ReplayBuffer():
         # Number of steps in the buffer
         self.n = 0
         # Observations
-        self.observations = torch.zeros(buff_len, *obs_shape) 
+        self.observations = torcher(np.zeros((buff_len,)+obs_shape))
         # Action Probabilities
-        self.action_probs = torch.zeros(buff_len, act_shape) 
+        self.action_probs = torcher(np.zeros((buff_len,)+(act_shape,)))
         # Actions (a one-hot representation of what action was chosen)
-        self.actions = torch.zeros(buff_len, act_shape) 
+        self.actions = torcher(np.zeros((buff_len,)+(act_shape,)))
         # Rewards
-        self.rewards = torch.zeros(buff_len)
+        self.rewards = torcher(np.zeros(buff_len))
 
     def append(self, ob, act_prob, act, r):
         """Adds new data to buffer"""
@@ -60,8 +71,7 @@ tb_writer.add_scalar('HyperParams/LR', LR, 0)
 tb_writer.add_scalar('HyperParams/Momentum', MOMENTUM, 0) 
 
 # Instantiate the model and optimizer
-model = model.Model(env.observation_space.shape, env.action_space.n, LR, MOMENTUM) 
-#model.cuda() # puts all variables on the GPU
+model = model.Model(env.observation_space.shape, env.action_space.n, LR, MOMENTUM, cuda) 
 
 # Add model to the graph
 #dummy = torch.Variable(
@@ -84,17 +94,20 @@ nsteps_to_learn = 20
 rp_buffer = ReplayBuffer(nsteps_to_learn, env.observation_space.shape, env.action_space.n) 
 
 # Gather first observation
-obs = env.reset()/255
+np_obs = env.reset()/255
+obs = torcher(np_obs)
 # Training loop
 while(episode < MAX_EPISODES):
     # Asks the model for the action
     act_taken, act_taken_v, act_probs = model.act_stochastic(obs)
 
     # Takes the action
-    observation, reward, done, info = env.step(act_taken.numpy()[0])
+    observation, reward_c, done, info = env.step(act_taken[0])
 
     # Perform book-keeping
-    obs = observation/255   # Converts to float
+    obs = torcher(observation/255)   # Converts to float
+    #reward = torcher(reward_c)
+    reward = reward_c
     episode_reward += reward
     total_reward += reward
     episode_step += 1
@@ -104,7 +117,7 @@ while(episode < MAX_EPISODES):
     #env.render()
 
     # Add experience to replay buffer
-    rp_buffer.append(torch.from_numpy(obs), act_probs, act_taken_v, reward)
+    rp_buffer.append(obs, act_probs, act_taken_v, reward)
     
     # Learn from experience and clear rp buffer
     if(total_step%nsteps_to_learn == 0):
@@ -133,6 +146,7 @@ while(episode < MAX_EPISODES):
         episode += 1
         episode_step = 0
         episode_reward = 0
-        obs = env.reset()
+        np_obs = env.reset()/255
+        obs = torcher(np_obs)
 
 print("Training finished after", str(episode), "episodes and", str(total_step), "steps with avg reward", str(total_reward/episode), "reward/episode")

@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class Model(torch.nn.Module):
-    def __init__(self, obs_shape, act_size, LR, momentum):
+    def __init__(self, obs_shape, act_size, LR, momentum, cuda):
         # Number of possible actions
         self.act_size = act_size
         # Shape of the observations
@@ -24,6 +24,11 @@ class Model(torch.nn.Module):
 
         # Optimizer that performs the gradient step
         self.optimizer = torch.optim.SGD(self.parameters(), lr=LR, momentum=momentum)
+
+        # If cuda is enabled, all vars are put on the gpu
+        self.cuda_bool = cuda
+        if(self.cuda_bool):
+            self.cuda()
 
 
     def forward(self, x):
@@ -49,12 +54,14 @@ class Model(torch.nn.Module):
         return policy_output.data
 
     def act_stochastic(self, obs):
-        act_probs = self.act_probs(torch.from_numpy(obs))
+        """Returns an action chosen semi stochastically"""
+
+        act_probs = self.act_probs(obs)
         distrib = torch.distributions.Categorical(probs=act_probs)
         # Samples from the categorical distribution to determine action to take
         act_taken = distrib.sample()
         act_taken_v = torch.zeros(self.act_size)
-        act_taken_v[act_taken] = 1
+        act_taken_v[act_taken[0]] = 1
         return act_taken, act_taken_v, act_probs
 
     def learn(self, replay_buffer):
@@ -78,7 +85,7 @@ class Model(torch.nn.Module):
         total_loss = policy_loss + 0.25*critic_loss
 
         # Debugging
-        print("Policy:", policy_loss.data.numpy()[0], "\tCritic: ", critic_loss.data.numpy()[0], "\tTotalLoss: ", total_loss.data.numpy()[0], "\tDiscRew: ", discounted_reward)
+        print("Policy:", policy_loss.data.cpu().numpy()[0], "\tCritic: ", critic_loss.data.cpu().numpy()[0], "\tTotalLoss: ", total_loss.data.cpu().numpy()[0], "\tDiscRew: ", discounted_reward)
 
         # Calculates gradients w.r.t. all weights in the model
         total_loss.backward()
@@ -86,6 +93,6 @@ class Model(torch.nn.Module):
         self.optimizer.step()
 
         # Returns values for summary writer
-        return policy_loss.data.numpy()[0], critic_loss.data.numpy()[0], total_loss.data.numpy()[0], discounted_reward
+        return policy_loss.data.cpu().numpy()[0], critic_loss.data.cpu().numpy()[0], total_loss.data.cpu().numpy()[0], discounted_reward
 
 
