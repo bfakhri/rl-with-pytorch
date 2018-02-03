@@ -25,6 +25,8 @@ class ReplayBuffer():
     """This class stores gameplay data as torch tensors"""
 
     def __init__(self, buff_len, obs_shape, act_shape):
+        # Length of buffer
+        self.buff_len = buff_len
         # Number of steps in the buffer
         self.n = 0
         # Observations
@@ -52,11 +54,14 @@ class ReplayBuffer():
         """Returns the discounted reward parameterized by 'lambd'"""
 
         # There is probably a more torch-like way to do this
+        discounted_rewards = torcher(np.zeros(self.buff_len))
         summer = 0
         for i in range(self.n):
             summer += math.pow(lambd, i)*self.rewards[i]
-
-        return summer
+            discounted_rewards[i] = summer
+            if(self.dones[i] == 1):
+                summer = 0
+        return discounted_rewards
 
     def actions_scalar(self):
         """Returns array of scalars corresponding to the actions taken"""
@@ -121,7 +126,7 @@ while(episode < MAX_EPISODES):
     #env.render()
 
     # Add experience to replay buffer
-    rp_buffer.append(obs, act_probs, act_taken_v, reward)
+    rp_buffer.append(obs, act_probs, act_taken_v, reward, done)
     
     # Learn from experience and clear rp buffer
     if(total_step%nsteps_to_learn == 0):

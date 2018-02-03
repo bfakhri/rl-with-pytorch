@@ -76,7 +76,7 @@ class Model(torch.nn.Module):
         # Performs a foward step through the model
         act_probs, expected_rewards = self(AG.Variable(replay_buffer.observations))
         # Advantage (diff b/t the actual discounted reward and the expected)
-        advantage = AG.Variable(replay_buffer.rewards) - expected_rewards
+        advantage = AG.Variable(replay_buffer.discount(0.99)) - expected_rewards
         # Cross Entropy where p is true distribution and q is the predicted
         # cross_entropy = -(p*torch.log(q)).sum()
         cross_entropy = -(AG.Variable(replay_buffer.actions)*torch.log(act_probs)).sum(dim=1)
