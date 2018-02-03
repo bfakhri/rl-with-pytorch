@@ -79,8 +79,7 @@ class Model(torch.nn.Module):
         advantage = AG.Variable(replay_buffer.rewards) - expected_rewards
         # Cross Entropy where p is true distribution and q is the predicted
         # cross_entropy = -(p*torch.log(q)).sum()
-        cross_entropy = -(AG.Variable(replay_buffer.actions)*torch.log(act_probs)).sum()
-        print(cross_entropy)
+        cross_entropy = -(AG.Variable(replay_buffer.actions)*torch.log(act_probs)).sum(dim=1)
         # Policy loss (encourages behavior in buffer if advantage is positive and vice-a-versa
         policy_loss = (advantage*cross_entropy).mean()
         # Critic loss (same as advantage) 
