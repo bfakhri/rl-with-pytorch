@@ -35,14 +35,17 @@ class ReplayBuffer():
         self.actions = torcher(np.zeros((buff_len,)+(act_shape,)))
         # Rewards
         self.rewards = torcher(np.zeros(buff_len))
+        # Dones 
+        self.dones = torcher(np.zeros(buff_len))
 
-    def append(self, ob, act_prob, act, r):
+    def append(self, ob, act_prob, act, r, done):
         """Adds new data to buffer"""
 
         self.observations[self.n] = ob
         self.action_probs[self.n] = act_prob
         self.actions[self.n] = act
         self.rewards[self.n] = r
+        self.dones[self.n] = done 
         self.n += 1
 
     def discount(self, lambd):
@@ -57,6 +60,7 @@ class ReplayBuffer():
 
     def actions_scalar(self):
         """Returns array of scalars corresponding to the actions taken"""
+
         values, actions_s = torch.max(self.actions, dim=1)
         return actions_s
 
