@@ -131,8 +131,10 @@ while(episode < MAX_EPISODES):
     # Learn from experience and clear rp buffer
     if(total_step%nsteps_to_learn == 0):
         # Calculates/Applies grads
-        pl, cl, tl, dr = model.learn(rp_buffer)
+        pl, cl, tl, dr, ce, ad = model.learn(rp_buffer)
         # Write outputs out for visualization
+        tb_writer.add_scalar('Misc/CrossEntropyMean', ce.mean(), total_step) 
+        tb_writer.add_scalar('Misc/Advantage', ad.mean(), total_step) 
         tb_writer.add_scalar('Loss/PolicyLoss', pl, total_step) 
         tb_writer.add_scalar('Loss/CriticLoss', cl, total_step) 
         tb_writer.add_scalar('Loss/TotalLoss', tl, total_step) 

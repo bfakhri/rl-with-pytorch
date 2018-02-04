@@ -80,12 +80,17 @@ class Model(torch.nn.Module):
         # Cross Entropy where p is true distribution and q is the predicted
         # cross_entropy = -(p*torch.log(q)).sum()
         cross_entropy = -(AG.Variable(replay_buffer.actions)*torch.log(act_probs)).sum(dim=1)
+        # Calculate entropy of policy output
+        policy_entropy = -(act_probs*torch.log(act_probs)).sum(dim=1).mean()
         # Policy loss (encourages behavior in buffer if advantage is positive and vice-a-versa
         policy_loss = (advantage*cross_entropy).mean()
         # Critic loss (same as advantage) 
         critic_loss = (advantage**2).mean()
         # Sums the individual losses
-        total_loss = policy_loss + 0.25*critic_loss
+        #total_loss = policy_loss + 0.25*critic_loss
+        #total_loss = critic_loss
+        #total_loss = policy_loss + 0.25*critic_loss - policy_entropy
+        total_loss = policy_loss + 4*critic_loss - policy_entropy
 
         # Debugging
         print("Policy:", policy_loss.data.cpu().numpy()[0], "\tCritic: ", critic_loss.data.cpu().numpy()[0], "\tTotalLoss: ", total_loss.data.cpu().numpy()[0])
@@ -96,6 +101,6 @@ class Model(torch.nn.Module):
         self.optimizer.step()
 
         # Returns values for summary writer
-        return policy_loss.data.cpu().numpy()[0], critic_loss.data.cpu().numpy()[0], total_loss.data.cpu().numpy()[0], replay_buffer.rewards.mean()
+        return policy_loss.data.cpu().numpy()[0], critic_loss.data.cpu().numpy()[0], total_loss.data.cpu().numpy()[0], replay_buffer.rewards.mean(), cross_entropy.data, advantage.data
 
 
