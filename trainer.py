@@ -137,7 +137,7 @@ while(episode < MAX_EPISODES):
         tb_writer.add_scalar('Loss/CriticLoss', cl, total_step) 
         tb_writer.add_scalar('Loss/TotalLoss', tl, total_step) 
         tb_writer.add_scalar('Rewards/DiscountedReward', dr, total_step) 
-        tb_writer.add_histogram('Actions/ActionsTaken', rp_buffer.actions_scalar(), total_step) # Doesn't work properly, must fix
+        tb_writer.add_histogram('Actions/ActionsTaken', rp_buffer.actions_scalar(), total_step, bins=np.arange(-1, env.action_space.n+1, 0.2)) 
 
         # Clears the replay buffer
         rp_buffer = ReplayBuffer(nsteps_to_learn, env.observation_space.shape, env.action_space.n) 
