@@ -22,7 +22,7 @@ class Model(torch.nn.Module):
         self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
         self.fc1 = nn.Linear(36260, 50)
         self.fc_act = nn.Linear(50, act_size)
-        self.fc_adv= nn.Linear(50, 1)
+        self.fc_val = nn.Linear(50, 1)
 
         # Optimizer that performs the gradient step
         self.optimizer = torch.optim.SGD(self.parameters(), lr=LR, momentum=momentum)
@@ -44,8 +44,8 @@ class Model(torch.nn.Module):
         x = F.relu(self.fc1(x))
         act = self.fc_act(x)
         act = F.softmax(act)
-        adv = self.fc_adv(x)
-        return act, adv
+        val = self.fc_val(x)
+        return act, val 
 
 
     def act_probs(self, obs):
@@ -90,7 +90,7 @@ class Model(torch.nn.Module):
         #total_loss = policy_loss + 0.25*critic_loss
         #total_loss = critic_loss
         #total_loss = policy_loss + 0.25*critic_loss - policy_entropy
-        total_loss = policy_loss + 4*critic_loss - policy_entropy
+        total_loss = policy_loss + critic_loss - 0.01*policy_entropy
 
         # Debugging
         print("Policy:", policy_loss.data.cpu().numpy()[0], "\tCritic: ", critic_loss.data.cpu().numpy()[0], "\tTotalLoss: ", total_loss.data.cpu().numpy()[0])
