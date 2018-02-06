@@ -25,7 +25,8 @@ class Model(torch.nn.Module):
         self.fc_val = nn.Linear(50, 1)
 
         # Optimizer that performs the gradient step
-        self.optimizer = torch.optim.SGD(self.parameters(), lr=LR, momentum=momentum)
+        #self.optimizer = torch.optim.SGD(self.parameters(), lr=LR, momentum=momentum)
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=LR)
 
         # If cuda is enabled, all vars are put on the gpu
         self.cuda_bool = cuda
