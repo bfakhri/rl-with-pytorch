@@ -3,11 +3,12 @@ import math
 import torch
 import model
 import numpy as np
-
+from torch.autograd import Variable
 # Using TensorBoardX for PyTorch: https://github.com/lanpa/tensorboard-pytorch
 import tensorboardX as tbx
+
 # Instantiate the summary writer for tensorboard visualization
-tb_writer = tbx.SummaryWriter()
+tb_writer = tbx.SummaryWriter(comment="RunDescription")
 
 cuda = True
 #cuda = False 
@@ -82,12 +83,6 @@ tb_writer.add_scalar('HyperParams/Momentum', MOMENTUM, 0)
 # Instantiate the model and optimizer
 model = model.Model(env.observation_space.shape, env.action_space.n, LR, MOMENTUM, cuda) 
 
-# Add model to the graph
-#dummy = torch.Variable(
-#tb_writer.add_graph(model, model.variables())
-
-
-
 # Training Limits
 MAX_EPISODES = 100000
 
@@ -97,7 +92,7 @@ episode_step = 0
 total_step = 0
 episode_reward = 0
 total_reward = 0
-nsteps_to_learn = 20
+nsteps_to_learn = 64
 
 # Instantiate replay buffer
 rp_buffer = ReplayBuffer(nsteps_to_learn, env.observation_space.shape, env.action_space.n) 
@@ -105,6 +100,10 @@ rp_buffer = ReplayBuffer(nsteps_to_learn, env.observation_space.shape, env.actio
 # Gather first observation
 np_obs = env.reset()/255
 obs = torcher(np_obs)
+
+# Add the computational graph to TensorBoard
+tb_writer.add_graph(model, (Variable(obs.unsqueeze(0)), ))
+
 # Training loop
 while(episode < MAX_EPISODES):
     # Asks the model for the action
@@ -115,7 +114,6 @@ while(episode < MAX_EPISODES):
 
     # Perform book-keeping
     obs = torcher(observation/255)   # Converts to float
-    #reward = torcher(reward_c)
     reward = reward_c
     episode_reward += reward
     total_reward += reward
@@ -139,7 +137,7 @@ while(episode < MAX_EPISODES):
         tb_writer.add_scalar('Loss/CriticLoss', cl, total_step) 
         tb_writer.add_scalar('Loss/TotalLoss', tl, total_step) 
         tb_writer.add_scalar('Rewards/DiscountedReward', dr, total_step) 
-        tb_writer.add_histogram('Actions/ActionsTaken', rp_buffer.actions_scalar(), total_step, bins=np.arange(-1, env.action_space.n+1, 0.2)) 
+        tb_writer.add_histogram('Actions/ActionsTaken', rp_buffer.actions_scalar().cpu().numpy(), total_step, bins=np.arange(-1, env.action_space.n+1, 0.2)) 
 
         # Clears the replay buffer
         rp_buffer = ReplayBuffer(nsteps_to_learn, env.observation_space.shape, env.action_space.n) 
