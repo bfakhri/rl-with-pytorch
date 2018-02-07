@@ -8,7 +8,8 @@ from torch.autograd import Variable
 import tensorboardX as tbx
 
 # Instantiate the summary writer for tensorboard visualization
-tb_writer = tbx.SummaryWriter(comment="RunDescription")
+#tb_writer = tbx.SummaryWriter(comment="RunDescription")
+tb_writer = tbx.SummaryWriter(comment="DetachedAdv")
 
 cuda = True
 #cuda = False 
@@ -71,11 +72,12 @@ class ReplayBuffer():
         return actions_s
 
 # Instantiate the Environment
-#env = gym.make('SpaceInvaders-v0')
-env = gym.make('Pong-v0')
+#env_str = 'SpaceInvaders-v0'
+env_str = 'Pong-v0'
+env = gym.make(env_str)
 
 # Optimizer Params
-LR = 0.0001
+LR = 0.00001
 MOMENTUM = 0.5
 tb_writer.add_scalar('HyperParams/LR', LR, 0) 
 tb_writer.add_scalar('HyperParams/Momentum', MOMENTUM, 0) 
@@ -87,12 +89,13 @@ model = model.Model(env.observation_space.shape, env.action_space.n, LR, MOMENTU
 MAX_EPISODES = 100000
 
 # Training Loop
-episode = 0
-episode_step = 0
-total_step = 0
-episode_reward = 0
-total_reward = 0
-nsteps_to_learn = 64
+episode = 0             # Current episode number
+episode_step = 0        # Total steps during current episode
+total_step = 0          # Total steps trained on
+episode_reward = 0      # Total reward during episode
+total_reward = 0        # Running count of the reward obtained
+nsteps_to_learn = 64    # Number of steps to perform backprop on
+validate_freq = 20      # Number of episodes between validation phase
 
 # Instantiate replay buffer
 rp_buffer = ReplayBuffer(nsteps_to_learn, env.observation_space.shape, env.action_space.n) 
