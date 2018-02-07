@@ -7,10 +7,10 @@ import numpy as np
 
 #Parsers for command line args
 parser = argparse.ArgumentParser(description="Run Commands")
+parser.add_argument('-t', '--training-name-prefix' , type=str, default="")
 parser.add_argument('-l', '--learningRate' , type=float , default=0.0001)
 parser.add_argument('-m', '--maxEpisodes' , type=int, default=10000)
 parser.add_argument('-e', '--enviroment' , type=str, default="Pong-v0")
-parser.add_argument('-t', '--training-name-prefix' , type=str, default="")
 parser.add_argument('-b', '--batch-size', type=int, default=64)
 
 #add visualization & cuda
@@ -19,9 +19,17 @@ parser.add_argument('-c', '--cuda',type=bool, default=True)
 
 #store args in array
 args = parser.parse_args()
-
+arrayArgs=[]
 for arg in vars(args):
     print(arg , getattr(args, arg))
+    arrayArgs.append(arg +"="+ str(getattr(args, arg)))
+    print(arrayArgs)
+
+#turn array into string
+strArgs=""
+for arg in arrayArgs:
+    strArgs+=arg+" "
+print(strArgs)
 
 from torch.autograd import Variable
 # Using TensorBoardX for PyTorch: https://github.com/lanpa/tensorboard-pytorch
@@ -29,7 +37,7 @@ import tensorboardX as tbx
 
 # Instantiate the summary writer for tensorboard visualization
 #tb_writer = tbx.SummaryWriter(comment="RunDescription")
-tb_writer = tbx.SummaryWriter(comment="DetachedAdv")
+tb_writer = tbx.SummaryWriter(comment=strArgs)
 
 cuda = True
 #cuda = False 
@@ -53,7 +61,7 @@ class ReplayBuffer():
         self.n = 0
         # Observations
         self.observations = torcher(np.zeros((buff_len,)+obs_shape))
-        # Action Probabilities
+        # Action ProbabilitiesE
         self.action_probs = torcher(np.zeros((buff_len,)+(act_shape,)))
         # Actions (a one-hot representation of what action was chosen)
         self.actions = torcher(np.zeros((buff_len,)+(act_shape,)))
