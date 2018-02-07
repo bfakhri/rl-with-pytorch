@@ -4,48 +4,50 @@ import math
 import torch
 import model
 import numpy as np
-
-#Parsers for command line args
-parser = argparse.ArgumentParser(description="Run Commands")
-parser.add_argument('-t', '--training-name-prefix' , type=str, default="")
-parser.add_argument('-l', '--learningRate' , type=float , default=0.0001)
-parser.add_argument('-m', '--maxEpisodes' , type=int, default=10000)
-parser.add_argument('-e', '--enviroment' , type=str, default="Pong-v0")
-parser.add_argument('-b', '--batch-size', type=int, default=64)
-
-#add visualization & cuda
-parser.add_argument('-v', '--visualise',type=bool, default=False)
-parser.add_argument('-c', '--cuda',type=bool, default=True)
-
-#store args in array
-args = parser.parse_args()
-arrayArgs=[]
-for arg in vars(args):
-    print(arg , getattr(args, arg))
-    arrayArgs.append(arg +"="+ str(getattr(args, arg)))
-    print(arrayArgs)
-
-#turn array into string
-strArgs=""
-for arg in arrayArgs:
-    strArgs+=arg+" "
-print(strArgs)
-
 from torch.autograd import Variable
 # Using TensorBoardX for PyTorch: https://github.com/lanpa/tensorboard-pytorch
 import tensorboardX as tbx
 
-# Instantiate the summary writer for tensorboard visualization
-#tb_writer = tbx.SummaryWriter(comment="RunDescription")
-tb_writer = tbx.SummaryWriter(comment=strArgs)
+#Parsers for command line args
+parser = argparse.ArgumentParser(description="Run Commands")
+parser.add_argument('-t', '--prefix' , type=str, default="",
+        help='Text Prepended to Tensorboard run name')
+parser.add_argument('-l', '--learningRate' , type=float , default=0.0001,
+        help='Learning rate of optimizer')
+parser.add_argument('-m', '--maxEpisodes' , type=int, default=10000,
+        help='Max Episodes to train for')
+parser.add_argument('-e', '--environment_id' , type=str, default="Pong-v0",
+        help='The environment to train in')
+parser.add_argument('-b', '--batch_size', type=int, default=64,
+        help='Number of steps to perform backprop on')
+parser.add_argument('-v', '--visualise',type=bool, default=False,
+        help='Renders gameplay to screen if true')
+parser.add_argument('-c', '--cuda',type=bool, default=True,
+        help='Puts all weights and ops on the GPU')
 
-cuda = True
-#cuda = False 
+# Store args in array
+args = parser.parse_args()
+argsArray = []
+for idx, arg in enumerate(vars(args)):
+    argsArray.append(arg +"="+ str(getattr(args, arg)))
+
+# Display all hyperparams 
+print("\nHyperParams:\n", argsArray, "\n")
+
+# Turn array into string
+argsString=""
+for arg in argsArray:
+    argsString+=arg+" "
+
+# Instantiate the summary writer for tensorboard visualization
+tb_writer = tbx.SummaryWriter(comment = args.prefix + argsString)
+
 
 def torcher(arr_to_torch):
     """Converts the input to the proper torch tensor, whether that is 
     a cuda torch tensor or a regular torch tensor"""
-    if(cuda):
+
+    if(args.cuda):
         return torch.from_numpy(arr_to_torch).cuda().float()
     else:
         return torch.from_numpy(arr_to_torch).float()
@@ -100,18 +102,15 @@ class ReplayBuffer():
         return actions_s
 
 # Instantiate the Environment
-#env_str = 'SpaceInvaders-v0'
-env_str = 'Pong-v0'
-env = gym.make(env_str)
+env = gym.make(args.environment_id)
 
 # Optimizer Params
-LR = 0.00001
 MOMENTUM = 0.5
-tb_writer.add_scalar('HyperParams/LR', LR, 0) 
+tb_writer.add_scalar('HyperParams/LR', args.learningRate, 0) 
 tb_writer.add_scalar('HyperParams/Momentum', MOMENTUM, 0) 
 
 # Instantiate the model and optimizer
-model = model.Model(env.observation_space.shape, env.action_space.n, LR, MOMENTUM, cuda) 
+model = model.Model(env.observation_space.shape, env.action_space.n, args.learningRate, MOMENTUM, args.cuda) 
 
 # Training Limits
 MAX_EPISODES = 100000
@@ -122,11 +121,10 @@ episode_step = 0        # Total steps during current episode
 total_step = 0          # Total steps trained on
 episode_reward = 0      # Total reward during episode
 total_reward = 0        # Running count of the reward obtained
-nsteps_to_learn = 64    # Number of steps to perform backprop on
 validate_freq = 20      # Number of episodes between validation phase
 
 # Instantiate replay buffer
-rp_buffer = ReplayBuffer(nsteps_to_learn, env.observation_space.shape, env.action_space.n) 
+rp_buffer = ReplayBuffer(args.batch_size, env.observation_space.shape, env.action_space.n) 
 
 # Gather first observation
 np_obs = env.reset()/255
@@ -158,7 +156,7 @@ while(episode < MAX_EPISODES):
     rp_buffer.append(obs, act_probs, act_taken_v, reward, done)
     
     # Learn from experience and clear rp buffer
-    if(total_step%nsteps_to_learn == 0):
+    if(total_step%args.batch_size == 0):
         # Calculates/Applies grads
         pl, cl, tl, dr, ce, ad = model.learn(rp_buffer)
         # Write outputs out for visualization
@@ -171,7 +169,7 @@ while(episode < MAX_EPISODES):
         tb_writer.add_histogram('Actions/ActionsTaken', rp_buffer.actions_scalar().cpu().numpy(), total_step, bins=np.arange(-1, env.action_space.n+1, 0.2)) 
 
         # Clears the replay buffer
-        rp_buffer = ReplayBuffer(nsteps_to_learn, env.observation_space.shape, env.action_space.n) 
+        rp_buffer = ReplayBuffer(args.batch_size, env.observation_space.shape, env.action_space.n) 
 
     # Episode has finished
     if(done):
