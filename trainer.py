@@ -1,8 +1,28 @@
+import argparse
 import gym
 import math
 import torch
 import model
 import numpy as np
+
+#Parsers for command line args
+parser = argparse.ArgumentParser(description="Run Commands")
+parser.add_argument('-l', '--learningRate' , type=float , default=0.0001)
+parser.add_argument('-m', '--maxEpisodes' , type=int, default=10000)
+parser.add_argument('-e', '--enviroment' , type=str, default="Pong-v0")
+parser.add_argument('-t', '--training-name-prefix' , type=str, default="")
+parser.add_argument('-b', '--batch-size', type=int, default=64)
+
+#add visualization & cuda
+parser.add_argument('-v', '--visualise',type=bool, default=False)
+parser.add_argument('-c', '--cuda',type=bool, default=True)
+
+#store args in array
+args = parser.parse_args()
+
+for arg in vars(args):
+    print(arg , getattr(args, arg))
+
 from torch.autograd import Variable
 # Using TensorBoardX for PyTorch: https://github.com/lanpa/tensorboard-pytorch
 import tensorboardX as tbx
