@@ -78,20 +78,21 @@ class Model(torch.nn.Module):
         act_probs, expected_rewards = self(AG.Variable(replay_buffer.observations))
         # Advantage (diff b/t the actual discounted reward and the expected)
         advantage = AG.Variable(replay_buffer.discount(0.99)) - expected_rewards
+        advantage_no_grad = advantage.detach()
         # Cross Entropy where p is true distribution and q is the predicted
         # cross_entropy = -(p*torch.log(q)).sum()
         cross_entropy = -(AG.Variable(replay_buffer.actions)*torch.log(act_probs)).sum(dim=1)
         # Calculate entropy of policy output
         policy_entropy = -(act_probs*torch.log(act_probs)).sum(dim=1).mean()
         # Policy loss (encourages behavior in buffer if advantage is positive and vice-a-versa
-        policy_loss = (advantage*cross_entropy).mean()
+        policy_loss = (advantage_no_grad*cross_entropy).mean()
         # Critic loss (same as advantage) 
         critic_loss = (advantage**2).mean()
         # Sums the individual losses
         #total_loss = policy_loss + 0.25*critic_loss
         #total_loss = critic_loss
         #total_loss = policy_loss + 0.25*critic_loss - policy_entropy
-        total_loss = policy_loss + critic_loss - 0.01*policy_entropy
+        total_loss = policy_loss + 0.25*critic_loss - 0.1*policy_entropy
 
         # Debugging
         print("Policy:", policy_loss.data.cpu().numpy()[0], "\tCritic: ", critic_loss.data.cpu().numpy()[0], "\tTotalLoss: ", total_loss.data.cpu().numpy()[0])
