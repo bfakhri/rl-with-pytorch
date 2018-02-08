@@ -20,7 +20,7 @@ parser.add_argument('-e', '--environment_id' , type=str, default="Pong-v0",
         help='The environment to train in')
 parser.add_argument('-b', '--batch_size', type=int, default=64,
         help='Number of steps to perform backprop on')
-parser.add_argument('-v', '--visualise',type=bool, default=False,
+parser.add_argument('-v', '--render',type=bool, default=False,
         help='Renders gameplay to screen if true')
 parser.add_argument('-c', '--cuda',type=bool, default=True,
         help='Puts all weights and ops on the GPU')
@@ -150,7 +150,8 @@ while(episode < MAX_EPISODES):
     total_step += 1
 
     # Renders the game to screen
-    #env.render()
+    if(args.render):
+        env.render()
 
     # Add experience to replay buffer
     rp_buffer.append(obs, act_probs, act_taken_v, reward, done)
