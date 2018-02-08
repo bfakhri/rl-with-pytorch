@@ -13,16 +13,14 @@ class Model(torch.nn.Module):
         self.obs_shape = obs_shape
         # Dummy observation of the correct shape 
         # to do shape manipulations
-        dummy_obs = np.ndarray(obs_shape)
-        flat_obs = dummy_obs.reshape(-1)
+        self.dummy_obs = np.ndarray(obs_shape)
+        flat_obs = self.dummy_obs.reshape(-1)
 
         # Neural Network that defines the policy
         super(Model, self).__init__()
-        self.conv1 = nn.Conv2d(3, 10, kernel_size=5)
-        self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
-        self.fc1 = nn.Linear(36260, 50)
-        self.fc_act = nn.Linear(50, act_size)
-        self.fc_val = nn.Linear(50, 1)
+        self.fc1 = nn.Linear(self.dummy_obs.size, 100)
+        self.fc_act = nn.Linear(100, act_size)
+        self.fc_val = nn.Linear(100, 1)
 
         # Optimizer that performs the gradient step
         #self.optimizer = torch.optim.SGD(self.parameters(), lr=LR, momentum=momentum)
@@ -39,9 +37,7 @@ class Model(torch.nn.Module):
         an estimate of the maximum discounted reward attainable 
         from the current state"""
 
-        x = F.relu(F.max_pool2d(self.conv1(x.permute(0,3,1,2)), 2))
-        x = F.relu(F.max_pool2d(self.conv2(x), 2))
-        x = x.view(-1, 36260)
+        x = x.view(-1, self.dummy_obs.size)
         x = F.relu(self.fc1(x))
         act = self.fc_act(x)
         act = F.softmax(act)
