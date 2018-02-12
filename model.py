@@ -70,8 +70,6 @@ class Model(torch.nn.Module):
     def learn(self, replay_buffer):
         """Performs backprop w.r.t. the replay buffer"""
         
-        # Clears Gradients
-        self.optimizer.zero_grad()
         # Calculates the discounted reward
         #discounted_reward = replay_buffer.discount(0.99)
         # Performs a foward step through the model
@@ -97,8 +95,13 @@ class Model(torch.nn.Module):
         # Debugging
         print("Policy:", policy_loss.data.cpu().numpy()[0], "\tCritic: ", critic_loss.data.cpu().numpy()[0], "\tTotalLoss: ", total_loss.data.cpu().numpy()[0])
 
+
+        # Clears Gradients
+        self.optimizer.zero_grad()
         # Calculates gradients w.r.t. all weights in the model
         total_loss.backward()
+        # Clips gradients
+        torch.nn.utils.clip_grad_norm(self.parameters(), 40)
         # Applies the gradients
         self.optimizer.step()
 
