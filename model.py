@@ -154,11 +154,15 @@ class Model():
                 ep_steps += 1
                 self.val_step += 1
                 if(done):
-                    tf.summary.scalar('EpisodeReward', ep_reward)
-                    tf.summary.scalar('StepsPerEpisode', ep_steps)
+                    rs = tf.summary.scalar('EpisodeReward', ep_reward)
+                    ss = tf.summary.scalar('StepsPerEpisode', ep_steps)
                     print('Validating:\tEpisodeReward=', ep_reward, '\tSteps= ', ep_steps)
-                    all_sums = self.sess.run(self.all_summaries, feed_dict={x: val_batch[0], y_true: val_batch[1], keep_prob: 1.0})
-                    self.writer.add_summary(all_sums, self.val_step) 
+                    #all_sums = self.sess.run(self.all_summaries)
+                    #self.writer.add_summary(all_sums, self.val_step) 
+                    rss, sss = self.sess.run([rs,ss])
+                    self.writer.add_summary(rss, self.val_step) 
+                    self.writer.add_summary(sss, self.val_step) 
+
                 
 
 
