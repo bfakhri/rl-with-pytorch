@@ -1,12 +1,58 @@
-import numpy as np
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-#import torch.autograd.Variable as AG.Variable
-import torch.autograd as AG
+import numpy as np 
+import tensorflow as tf
 
-class Model(torch.nn.Module):
-    def __init__(self, obs_shape, act_size, LR, momentum, cuda):
+# defines a convolutional layer
+# from: https://github.com/openai/baselines/blob/master/baselines/a2c/utils.py
+def conv(x, scope, *, nf, rf, stride, activ_fn=tf.nn.relu, pad='VALID', init_scale=1.0):
+    with tf.variable_scope(scope):
+        nin = x.get_shape()[3].value
+        w = tf.get_variable("w", [rf, rf, nin, nf], initializer=ortho_init(init_scale))
+        b = tf.get_variable("b", [nf], initializer=tf.constant_initializer(0.0))
+        activations = activ_fn(tf.nn.conv2d(x, w, strides=[1, stride, stride, 1], padding=pad)+b)
+        tf.summary.histogram("Weights", w)
+        tf.summary.histogram("Biases", b)
+        tf.summary.histogram("Activations", activations)
+        return activations
+
+# defines a fully connected layer
+# from: https://github.com/openai/baselines/blob/master/baselines/a2c/utils.py
+def fc(x, scope, nh, *, init_scale=1.0, init_bias=0.0):
+    with tf.variable_scope(scope):
+        nin = x.get_shape()[1].value
+        w = tf.get_variable("w", [nin, nh], initializer=ortho_init(init_scale))
+        b = tf.get_variable("b", [nh], initializer=tf.constant_initializer(init_bias))
+        activations = tf.matmul(x, w)+b
+        tf.summary.histogram("Weights", w)
+        tf.summary.histogram("Biases", b)
+        tf.summary.histogram("Activations", activations)
+        return activations
+
+# Takes output from conv and converts it to fc (flattens) 
+# from: https://github.com/openai/baselines/blob/master/baselines/a2c/utils.py
+def conv_to_fc(x):
+    nh = np.prod([v.value for v in x.get_shape()[1:]])
+    x = tf.reshape(x, [-1, nh])
+    return x
+
+def ortho_init(scale=1.0):
+    def _ortho_init(shape, dtype, partition_info=None):
+        #lasagne ortho init for tf
+        shape = tuple(shape)
+        if len(shape) == 2:
+            flat_shape = shape
+        elif len(shape) == 4: # assumes NHWC
+            flat_shape = (np.prod(shape[:-1]), shape[-1])
+        else:
+            raise NotImplementedError
+        a = np.random.normal(0.0, 1.0, flat_shape)
+        u, _, v = np.linalg.svd(a, full_matrices=False)
+        q = u if u.shape == flat_shape else v # pick the one with the correct shape
+        q = q.reshape(shape)
+        return (scale * q[:shape[0], :shape[1]]).astype(np.float32)
+    return _ortho_init
+
+class Model():
+    def __init__(self, obs_shape, act_size, LR, cuda, log_str):
         # Number of possible actions
         self.act_size = act_size
         # Shape of the observations
@@ -17,21 +63,43 @@ class Model(torch.nn.Module):
         flat_obs = dummy_obs.reshape(-1)
 
         # Neural Network that defines the policy
-        super(Model, self).__init__()
-        self.conv1 = nn.Conv2d(3, 10, kernel_size=5)
-        self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
-        self.fc1 = nn.Linear(36260, 50)
-        self.fc_act = nn.Linear(50, act_size)
-        self.fc_val = nn.Linear(50, 1)
+        with tf.name_scope("Inputs"):
+            self.obs = tf.placeholder(tf.float32, shape=(None,)+ obs_shape)
 
-        # Optimizer that performs the gradient step
-        #self.optimizer = torch.optim.SGD(self.parameters(), lr=LR, momentum=momentum)
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=LR)
+        with tf.name_scope("FeatureExtractor"):
+            h = conv(self.obs, 'FE1', nf=32, rf=8, stride=4, init_scale=np.sqrt(2))
+            h2 = conv(h, 'FE2', nf=64, rf=4, stride=2, init_scale=np.sqrt(2))
+            h3 = conv(h2, 'FE3', nf=64, rf=3, stride=1, init_scale=np.sqrt(2))
 
-        # If cuda is enabled, all vars are put on the gpu
-        self.cuda_bool = cuda
-        if(self.cuda_bool):
-            self.cuda()
+        with tf.name_scope("FeatureUser"):
+            h3 = conv_to_fc(h3)
+            h4 = fc(h3, 'FC1', nh=512, init_scale=np.sqrt(2))
+            self.pi = fc(h4, 'pi', act_size, init_scale=0.01)
+            self.vf = fc(h4, 'v', 1)[:,0]
+
+        with tf.name_scope("Stochastic"):
+            distrib = tf.contrib.distributions.Categorical(probs=self.pi)
+            # Samples from the categorical distribution to determine action to take
+            self.act_taken = distrib.sample()
+
+
+        if(cuda):
+            SESS_CONFIG = tf.ConfigProto(device_count = {'GPU': 1})
+        else:
+            SESS_CONFIG = tf.ConfigProto(device_count = {'GPU': 0})
+
+        # Create the session
+        self.sess = tf.Session(config=SESS_CONFIG)
+
+        # Init all weights
+        self.sess.run(tf.global_variables_initializer())
+
+        # Merge Summaries and Create Summary Writer for TB
+        all_summaries = tf.summary.merge_all()
+        self.writer = tf.summary.FileWriter(log_str)
+        self.writer.add_graph(self.sess.graph) 
+
+
 
 
     def forward(self, x):
@@ -39,73 +107,25 @@ class Model(torch.nn.Module):
         an estimate of the maximum discounted reward attainable 
         from the current state"""
 
-        x = F.relu(F.max_pool2d(self.conv1(x.permute(0,3,1,2)), 2))
-        x = F.relu(F.max_pool2d(self.conv2(x), 2))
-        x = x.view(-1, 36260)
-        x = F.relu(self.fc1(x))
-        act = self.fc_act(x)
-        act = F.softmax(act)
-        val = self.fc_val(x)
-        return act, val 
+        act_probs, values = self.sess.run([self.pi, self.vf], feed_dict={self.obs: x})
+        return act_probs, values
 
-
-    def act_probs(self, obs):
-        """Returns the action probabilities given an observation"""
-
-        obs_torch = AG.Variable(obs.unsqueeze(0))
-        policy_output, reward_estimate = self(obs_torch.float())
-        return policy_output.data
 
     def act_stochastic(self, obs):
         """Returns an action chosen semi stochastically"""
 
-        act_probs = self.act_probs(obs)
-        distrib = torch.distributions.Categorical(probs=act_probs)
-        # Samples from the categorical distribution to determine action to take
-        act_taken = distrib.sample()
-        act_taken_v = torch.zeros(self.act_size)
+        act_taken, act_probs = self.sess.run([self.act_taken, self.pi], feed_dict={self.obs: obs})
+        act_taken_v = np.zeros(self.act_size)
         act_taken_v[act_taken[0]] = 1
         return act_taken, act_taken_v, act_probs
 
     def learn(self, replay_buffer):
         """Performs backprop w.r.t. the replay buffer"""
+        return 0
+
+
         
-        # Calculates the discounted reward
-        #discounted_reward = replay_buffer.discount(0.99)
-        # Performs a foward step through the model
-        act_probs, expected_rewards = self(AG.Variable(replay_buffer.observations))
-        # Advantage (diff b/t the actual discounted reward and the expected)
-        advantage = AG.Variable(replay_buffer.discount(0.99)) - expected_rewards
-        advantage_no_grad = advantage.detach()
-        # Cross Entropy where p is true distribution and q is the predicted
-        # cross_entropy = -(p*torch.log(q)).sum()
-        cross_entropy = -(AG.Variable(replay_buffer.actions)*torch.log(act_probs)).sum(dim=1)
-        # Calculate entropy of policy output
-        policy_entropy = -(act_probs*torch.log(act_probs)).sum(dim=1).mean()
-        # Policy loss (encourages behavior in buffer if advantage is positive and vice-a-versa
-        policy_loss = (advantage_no_grad*cross_entropy).mean()
-        # Critic loss (same as advantage) 
-        critic_loss = (advantage**2).mean()
-        # Sums the individual losses
-        #total_loss = policy_loss + 0.25*critic_loss
-        #total_loss = critic_loss
-        #total_loss = policy_loss + 0.25*critic_loss - policy_entropy
-        total_loss = policy_loss + 0.25*critic_loss - 0.1*policy_entropy
-
-        # Debugging
-        print("Policy:", policy_loss.data.cpu().numpy()[0], "\tCritic: ", critic_loss.data.cpu().numpy()[0], "\tTotalLoss: ", total_loss.data.cpu().numpy()[0])
 
 
-        # Clears Gradients
-        self.optimizer.zero_grad()
-        # Calculates gradients w.r.t. all weights in the model
-        total_loss.backward()
-        # Clips gradients
-        torch.nn.utils.clip_grad_norm(self.parameters(), 40)
-        # Applies the gradients
-        self.optimizer.step()
-
-        # Returns values for summary writer
-        return policy_loss.data.cpu().numpy()[0], critic_loss.data.cpu().numpy()[0], total_loss.data.cpu().numpy()[0], replay_buffer.rewards.mean(), cross_entropy.data, advantage.data
 
 

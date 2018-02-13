@@ -1,12 +1,9 @@
 import argparse
 import gym
 import math
-import torch
 import model
+import tensorflow as tf
 import numpy as np
-from torch.autograd import Variable
-# Using TensorBoardX for PyTorch: https://github.com/lanpa/tensorboard-pytorch
-import tensorboardX as tbx
 
 #Parsers for command line args
 parser = argparse.ArgumentParser(description="Run Commands")
@@ -24,6 +21,10 @@ parser.add_argument('-v', '--render',type=bool, default=False,
         help='Renders gameplay to screen if true')
 parser.add_argument('-c', '--cuda',type=bool, default=True,
         help='Puts all weights and ops on the GPU')
+parser.add_argument('-d', '--logdir' , type=str, default="./logs",
+        help='Log Directory')
+parser.add_argument('-run', '--runNum' , type=str, default="",
+        help='Log Directory')
 
 # Store args in array
 args = parser.parse_args()
@@ -39,19 +40,6 @@ argsString=""
 for arg in argsArray:
     argsString+=arg+" "
 
-# Instantiate the summary writer for tensorboard visualization
-tb_writer = tbx.SummaryWriter(comment = args.prefix + argsString)
-
-
-def torcher(arr_to_torch):
-    """Converts the input to the proper torch tensor, whether that is 
-    a cuda torch tensor or a regular torch tensor"""
-
-    if(args.cuda):
-        return torch.from_numpy(arr_to_torch).cuda().float()
-    else:
-        return torch.from_numpy(arr_to_torch).float()
-
 
 class ReplayBuffer():
     """This class stores gameplay data as torch tensors"""
@@ -62,15 +50,15 @@ class ReplayBuffer():
         # Number of steps in the buffer
         self.n = 0
         # Observations
-        self.observations = torcher(np.zeros((buff_len,)+obs_shape))
+        self.observations = np.zeros((buff_len,)+obs_shape)
         # Action ProbabilitiesE
-        self.action_probs = torcher(np.zeros((buff_len,)+(act_shape,)))
+        self.action_probs = np.zeros((buff_len,)+(act_shape,))
         # Actions (a one-hot representation of what action was chosen)
-        self.actions = torcher(np.zeros((buff_len,)+(act_shape,)))
+        self.actions = np.zeros((buff_len,)+(act_shape,))
         # Rewards
-        self.rewards = torcher(np.zeros(buff_len))
+        self.rewards = np.zeros(buff_len)
         # Dones 
-        self.dones = torcher(np.zeros(buff_len))
+        self.dones = np.zeros(buff_len)
 
     def append(self, ob, act_prob, act, r, done):
         """Adds new data to buffer"""
@@ -86,7 +74,7 @@ class ReplayBuffer():
         """Returns the discounted reward parameterized by 'lambd'"""
 
         # There is probably a more torch-like way to do this
-        discounted_rewards = torcher(np.zeros(self.buff_len))
+        discounted_rewards = np.zeros(self.buff_len)
         summer = 0
         for i in range(self.n):
             summer += math.pow(lambd, i)*self.rewards[i]
@@ -101,19 +89,13 @@ class ReplayBuffer():
         values, actions_s = torch.max(self.actions, dim=1)
         return actions_s
 
+
+
 # Instantiate the Environment
 env = gym.make(args.environment_id)
 
-# Optimizer Params
-MOMENTUM = 0.5
-tb_writer.add_scalar('HyperParams/LR', args.learningRate, 0) 
-tb_writer.add_scalar('HyperParams/Momentum', MOMENTUM, 0) 
-
 # Instantiate the model and optimizer
-model = model.Model(env.observation_space.shape, env.action_space.n, args.learningRate, MOMENTUM, args.cuda) 
-
-# Training Limits
-MAX_EPISODES = 100000
+model = model.Model(obs_shape=env.observation_space.shape, act_size=env.action_space.n, LR=args.learningRate, cuda=args.cuda, log_str=args.logdir+args.runNum) 
 
 # Training Loop
 episode = 0             # Current episode number
@@ -127,22 +109,19 @@ validate_freq = 20      # Number of episodes between validation phase
 rp_buffer = ReplayBuffer(args.batch_size, env.observation_space.shape, env.action_space.n) 
 
 # Gather first observation
-np_obs = env.reset()/255
-obs = torcher(np_obs)
+obs = env.reset()/255.0
 
-# Add the computational graph to TensorBoard
-tb_writer.add_graph(model, (Variable(obs.unsqueeze(0)), ))
 
 # Training loop
-while(episode < MAX_EPISODES):
+for cur_ep in range(args.maxEpisodes):
     # Asks the model for the action
-    act_taken, act_taken_v, act_probs = model.act_stochastic(obs)
+    act_taken, act_taken_v, act_probs = model.act_stochastic(np.expand_dims(obs, 0))
 
     # Takes the action
     observation, reward_c, done, info = env.step(act_taken[0])
 
     # Perform book-keeping
-    obs = torcher(observation/255)   # Converts to float
+    obs = observation/255.0   # Converts to float
     reward = reward_c
     episode_reward += reward
     total_reward += reward
@@ -159,33 +138,18 @@ while(episode < MAX_EPISODES):
     # Learn from experience and clear rp buffer
     if(total_step%args.batch_size == 0):
         # Calculates/Applies grads
-        pl, cl, tl, dr, ce, ad = model.learn(rp_buffer)
-        # Write outputs out for visualization
-        tb_writer.add_scalar('Misc/CrossEntropyMean', ce.mean(), total_step) 
-        tb_writer.add_scalar('Misc/Advantage', ad.mean(), total_step) 
-        tb_writer.add_scalar('Loss/PolicyLoss', pl, total_step) 
-        tb_writer.add_scalar('Loss/CriticLoss', cl, total_step) 
-        tb_writer.add_scalar('Loss/TotalLoss', tl, total_step) 
-        tb_writer.add_scalar('Rewards/DiscountedReward', dr, total_step) 
-        tb_writer.add_histogram('Actions/ActionsTaken', rp_buffer.actions_scalar().cpu().numpy(), total_step, bins=np.arange(-1, env.action_space.n+1, 0.2)) 
+        model.learn(rp_buffer)
 
         # Clears the replay buffer
         rp_buffer = ReplayBuffer(args.batch_size, env.observation_space.shape, env.action_space.n) 
 
     # Episode has finished
     if(done):
-        # Write out for tensorboard
-        tb_writer.add_scalar('Rewards/EpisodeReward', episode_reward, total_step) 
-        tb_writer.add_scalar('Rewards/RewardPerStep', episode_reward/episode_step, total_step) 
-        tb_writer.add_scalar('Aux/EpisodeSteps', episode_step, total_step) 
-        tb_writer.add_scalar('Aux/Progress', 1-episode/MAX_EPISODES, total_step) 
-        print("Episode", str(episode), "/", str(MAX_EPISODES), "finished after", episode_step, "steps with", str(episode_reward), "reward")
-
         # Update/Reset metrics
         episode += 1
         episode_step = 0
         episode_reward = 0
         np_obs = env.reset()/255
-        obs = torcher(np_obs)
+        obs = np_obs
 
 print("Training finished after", str(episode), "episodes and", str(total_step), "steps with avg reward", str(total_reward/episode), "reward/episode")
