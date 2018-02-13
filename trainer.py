@@ -91,11 +91,12 @@ class ReplayBuffer():
 
 
 
-# Instantiate the Environment
-env = gym.make(args.environment_id)
+# Instantiate the Environments
+train_env = gym.make(args.environment_id)
+valid_env = gym.make(args.environment_id)
 
 # Instantiate the model and optimizer
-model = model.Model(obs_shape=env.observation_space.shape, act_size=env.action_space.n, LR=args.learningRate, cuda=args.cuda, log_str=args.logdir+args.runNum) 
+model = model.Model(obs_shape=train_env.observation_space.shape, act_size=train_env.action_space.n, LR=args.learningRate, cuda=args.cuda, log_str=args.logdir+args.runNum) 
 
 # Training Loop
 episode = 0             # Current episode number
@@ -106,19 +107,20 @@ total_reward = 0        # Running count of the reward obtained
 validate_freq = 20      # Number of episodes between validation phase
 
 # Instantiate replay buffer
-rp_buffer = ReplayBuffer(args.batch_size, env.observation_space.shape, env.action_space.n) 
+rp_buffer = ReplayBuffer(args.batch_size, train_env.observation_space.shape, train_env.action_space.n) 
 
 # Gather first observation
-obs = env.reset()/255.0
+obs = train_env.reset()/255.0
 
+            
 
 # Training loop
 for cur_ep in range(args.maxEpisodes):
     # Asks the model for the action
-    act_taken, act_taken_v, act_probs = model.act_stochastic(np.expand_dims(obs, 0))
+    act_chosen, act_chosen_v, act_probs = model.act_stochastic(np.expand_dims(obs, 0))
 
     # Takes the action
-    observation, reward_c, done, info = env.step(act_taken[0])
+    observation, reward_c, done, info = train_env.step(act_chosen[0])
 
     # Perform book-keeping
     obs = observation/255.0   # Converts to float
@@ -130,10 +132,10 @@ for cur_ep in range(args.maxEpisodes):
 
     # Renders the game to screen
     if(args.render):
-        env.render()
+        train_env.render()
 
     # Add experience to replay buffer
-    rp_buffer.append(obs, act_probs, act_taken_v, reward, done)
+    rp_buffer.append(obs, act_probs, act_chosen_v, reward, done)
     
     # Learn from experience and clear rp buffer
     if(total_step%args.batch_size == 0):
@@ -141,7 +143,7 @@ for cur_ep in range(args.maxEpisodes):
         model.learn(rp_buffer)
 
         # Clears the replay buffer
-        rp_buffer = ReplayBuffer(args.batch_size, env.observation_space.shape, env.action_space.n) 
+        rp_buffer = ReplayBuffer(args.batch_size, train_env.observation_space.shape, train_env.action_space.n) 
 
     # Episode has finished
     if(done):
@@ -149,7 +151,8 @@ for cur_ep in range(args.maxEpisodes):
         episode += 1
         episode_step = 0
         episode_reward = 0
-        np_obs = env.reset()/255
+        np_obs = train_env.reset()/255
         obs = np_obs
+        model.validate(valid_env)
 
 print("Training finished after", str(episode), "episodes and", str(total_step), "steps with avg reward", str(total_reward/episode), "reward/episode")

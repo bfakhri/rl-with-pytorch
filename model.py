@@ -34,6 +34,8 @@ def conv_to_fc(x):
     x = tf.reshape(x, [-1, nh])
     return x
 
+# Weight initialization  
+# from: https://github.com/openai/baselines/blob/master/baselines/a2c/utils.py
 def ortho_init(scale=1.0):
     def _ortho_init(shape, dtype, partition_info=None):
         #lasagne ortho init for tf
@@ -63,24 +65,28 @@ class Model():
         flat_obs = dummy_obs.reshape(-1)
 
         # Neural Network that defines the policy
-        with tf.name_scope("Inputs"):
+        with tf.variable_scope("Inputs"):
             self.obs = tf.placeholder(tf.float32, shape=(None,)+ obs_shape)
 
-        with tf.name_scope("FeatureExtractor"):
-            h = conv(self.obs, 'FE1', nf=32, rf=8, stride=4, init_scale=np.sqrt(2))
-            h2 = conv(h, 'FE2', nf=64, rf=4, stride=2, init_scale=np.sqrt(2))
-            h3 = conv(h2, 'FE3', nf=64, rf=3, stride=1, init_scale=np.sqrt(2))
 
-        with tf.name_scope("FeatureUser"):
-            h3 = conv_to_fc(h3)
-            h4 = fc(h3, 'FC1', nh=512, init_scale=np.sqrt(2))
-            self.pi = fc(h4, 'pi', act_size, init_scale=0.01)
-            self.vf = fc(h4, 'v', 1)[:,0]
+        with tf.variable_scope("Agent"):
+            with tf.variable_scope("FeatureExtractor"):
+                h = conv(self.obs, 'FE1', nf=32, rf=8, stride=4, init_scale=np.sqrt(2))
+                h2 = conv(h, 'FE2', nf=64, rf=4, stride=2, init_scale=np.sqrt(2))
+                h3 = conv(h2, 'FE3', nf=64, rf=3, stride=1, init_scale=np.sqrt(2))
 
-        with tf.name_scope("Stochastic"):
-            distrib = tf.contrib.distributions.Categorical(probs=self.pi)
-            # Samples from the categorical distribution to determine action to take
-            self.act_taken = distrib.sample()
+            with tf.variable_scope("FeatureUser"):
+                h3 = conv_to_fc(h3)
+                h4 = fc(h3, 'FC1', nh=512, init_scale=np.sqrt(2))
+                self.pi = fc(h4, 'pi', act_size, init_scale=0.01)
+                self.vf = fc(h4, 'v', 1)[:,0]
+
+            with tf.variable_scope("Actions"):
+                # Deterministic action
+                self.act_argmax = tf.argmax(self.pi)
+                # Stochastic action
+                distrib = tf.contrib.distributions.Categorical(probs=self.pi)
+                self.act_stoch = distrib.sample()
 
 
         if(cuda):
@@ -95,10 +101,12 @@ class Model():
         self.sess.run(tf.global_variables_initializer())
 
         # Merge Summaries and Create Summary Writer for TB
-        all_summaries = tf.summary.merge_all()
+        self.all_summaries = tf.summary.merge_all()
         self.writer = tf.summary.FileWriter(log_str)
         self.writer.add_graph(self.sess.graph) 
 
+        # Validation step 
+        self.val_step = 0
 
 
 
@@ -114,17 +122,47 @@ class Model():
     def act_stochastic(self, obs):
         """Returns an action chosen semi stochastically"""
 
-        act_taken, act_probs = self.sess.run([self.act_taken, self.pi], feed_dict={self.obs: obs})
-        act_taken_v = np.zeros(self.act_size)
-        act_taken_v[act_taken[0]] = 1
-        return act_taken, act_taken_v, act_probs
+        act_chosen, act_probs = self.sess.run([self.act_stoch, self.pi], feed_dict={self.obs: obs})
+        act_chosen_v = np.zeros(self.act_size)
+        act_chosen_v[act_chosen[0]] = 1
+        return act_chosen, act_chosen_v, act_probs
+
+    def act_deterministically(self, obs):
+        """Returns an action chosen deterministically"""
+
+        act_chosen, act_probs = self.sess.run([self.act_argmax, self.pi], feed_dict={self.obs: obs})
+        act_chosen_v = np.zeros(self.act_size)
+        act_chosen_v[act_chosen[0]] = 1
+        return act_chosen, act_chosen_v, act_probs
 
     def learn(self, replay_buffer):
         """Performs backprop w.r.t. the replay buffer"""
         return 0
 
+    def validate(self, env, max_eps=10):
+        for episode in range(max_eps):
+            done = False
+            obs = env.reset()/255.0
+            ep_reward = 0
+            ep_steps = 0
+            while(not done):
+                # Choose action
+                act_chosen, act_chosen_v, act_probs = self.act_stochastic(np.expand_dims(obs, 0))
+                # Take the action
+                observation, reward, done, info = env.step(act_chosen[0])
+                ep_reward += reward
+                ep_steps += 1
+                self.val_step += 1
+                if(done):
+                    tf.summary.scalar('EpisodeReward', ep_reward)
+                    tf.summary.scalar('StepsPerEpisode', ep_steps)
+                    print('Validating:\tEpisodeReward=', ep_reward, '\tSteps= ', ep_steps)
+                    all_sums = self.sess.run(self.all_summaries, feed_dict={x: val_batch[0], y_true: val_batch[1], keep_prob: 1.0})
+                    self.writer.add_summary(all_sums, self.val_step) 
+                
 
-        
+
+            
 
 
 
