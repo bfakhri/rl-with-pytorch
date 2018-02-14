@@ -102,3 +102,4 @@ ENV/
 
 # Tensorboard log directory
 runs/
+logs/
