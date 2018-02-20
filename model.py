@@ -139,7 +139,7 @@ class Model():
         """Performs backprop w.r.t. the replay buffer"""
         return 0
 
-    def validate(self, env, max_eps=10):
+    def validate(self, env, max_eps=1):
         for episode in range(max_eps):
             done = False
             obs = env.reset()/255.0
@@ -156,7 +156,7 @@ class Model():
                 if(done):
                     rs = tf.summary.scalar('EpisodeReward', ep_reward)
                     ss = tf.summary.scalar('StepsPerEpisode', ep_steps)
-                    print('Validating:\tEpisodeReward=', ep_reward, '\tSteps= ', ep_steps)
+                    print('Validating: ', str(episode+1), '/', str(max_eps), '\tEpisodeReward=', ep_reward, '\tSteps= ', ep_steps)
                     #all_sums = self.sess.run(self.all_summaries)
                     #self.writer.add_summary(all_sums, self.val_step) 
                     rss, sss = self.sess.run([rs,ss])

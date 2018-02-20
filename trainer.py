@@ -23,8 +23,8 @@ parser.add_argument('-c', '--cuda',type=bool, default=True,
         help='Puts all weights and ops on the GPU')
 parser.add_argument('-d', '--logdir' , type=str, default="./logs",
         help='Log Directory')
-parser.add_argument('-run', '--runNum' , type=str, default="",
-        help='Log Directory')
+parser.add_argument('-run', '--runNum' , type=str, default="1",
+        help='Number that designates the run in TensorBoard')
 
 # Store args in array
 args = parser.parse_args()
@@ -58,16 +58,16 @@ class ReplayBuffer():
         # Rewards
         self.rewards = np.zeros(buff_len)
         # Dones 
-        self.dones = np.zeros(buff_len)
+        self.ep_dones = np.zeros(buff_len)
 
-    def append(self, ob, act_prob, act, r, done):
+    def append(self, ob, act_prob, act, r, ep_done):
         """Adds new data to buffer"""
 
         self.observations[self.n] = ob
         self.action_probs[self.n] = act_prob
         self.actions[self.n] = act
         self.rewards[self.n] = r
-        self.dones[self.n] = done 
+        self.ep_dones[self.n] = ep_done 
         self.n += 1
 
     def discount(self, lambd):
@@ -79,7 +79,7 @@ class ReplayBuffer():
         for i in range(self.n):
             summer += math.pow(lambd, i)*self.rewards[i]
             discounted_rewards[i] = summer
-            if(self.dones[i] == 1):
+            if(self.ep_dones[i] == 1):
                 summer = 0
         return discounted_rewards
 
@@ -96,7 +96,7 @@ train_env = gym.make(args.environment_id)
 valid_env = gym.make(args.environment_id)
 
 # Instantiate the model and optimizer
-model = model.Model(obs_shape=train_env.observation_space.shape, act_size=train_env.action_space.n, LR=args.learningRate, cuda=args.cuda, log_str=args.logdir+args.runNum) 
+model = model.Model(obs_shape=train_env.observation_space.shape, act_size=train_env.action_space.n, LR=args.learningRate, cuda=args.cuda, log_str=args.logdir+'/'+args.runNum) 
 
 # Training Loop
 episode = 0             # Current episode number
@@ -111,48 +111,52 @@ rp_buffer = ReplayBuffer(args.batch_size, train_env.observation_space.shape, tra
 
 # Gather first observation
 obs = train_env.reset()/255.0
-
+ep_done = False
             
 
 # Training loop
 for cur_ep in range(args.maxEpisodes):
-    # Asks the model for the action
-    act_chosen, act_chosen_v, act_probs = model.act_stochastic(np.expand_dims(obs, 0))
+    ep_done = False
+    while(not ep_done):
+        # Asks the model for the action
+        act_chosen, act_chosen_v, act_probs = model.act_stochastic(np.expand_dims(obs, 0))
 
-    # Takes the action
-    observation, reward_c, done, info = train_env.step(act_chosen[0])
+        # Takes the action
+        observation, reward_c, ep_done, info = train_env.step(act_chosen[0])
 
-    # Perform book-keeping
-    obs = observation/255.0   # Converts to float
-    reward = reward_c
-    episode_reward += reward
-    total_reward += reward
-    episode_step += 1
-    total_step += 1
+        # Perform book-keeping
+        obs = observation/255.0   # Converts to float
+        reward = reward_c
+        episode_reward += reward
+        total_reward += reward
+        episode_step += 1
+        total_step += 1
 
-    # Renders the game to screen
-    if(args.render):
-        train_env.render()
+        # Renders the game to screen
+        if(args.render):
+            train_env.render()
 
-    # Add experience to replay buffer
-    rp_buffer.append(obs, act_probs, act_chosen_v, reward, done)
-    
-    # Learn from experience and clear rp buffer
-    if(total_step%args.batch_size == 0):
-        # Calculates/Applies grads
-        model.learn(rp_buffer)
+        # Add experience to replay buffer
+        rp_buffer.append(obs, act_probs, act_chosen_v, reward, ep_done)
+        
+        # Learn from experience and clear rp buffer
+        if(total_step%args.batch_size == 0):
+            # Calculates/Applies grads
+            model.learn(rp_buffer)
 
-        # Clears the replay buffer
-        rp_buffer = ReplayBuffer(args.batch_size, train_env.observation_space.shape, train_env.action_space.n) 
+            # Clears the replay buffer
+            rp_buffer = ReplayBuffer(args.batch_size, train_env.observation_space.shape, train_env.action_space.n) 
 
-    # Episode has finished
-    if(done):
-        # Update/Reset metrics
-        episode += 1
-        episode_step = 0
-        episode_reward = 0
-        np_obs = train_env.reset()/255
-        obs = np_obs
-        model.validate(valid_env)
+        # Episode has finished
+        if(ep_done):
+            print("Episode ", str(cur_ep), "\tFinished after ", str(episode_step), "steps with reward\t", str(episode_reward))
+            # Update/Reset metrics
+            episode_step = 0
+            episode_reward = 0
+            np_obs = train_env.reset()/255
+            obs = np_obs
 
-print("Training finished after", str(episode), "episodes and", str(total_step), "steps with avg reward", str(total_reward/episode), "reward/episode")
+            if(cur_ep%validate_freq == 0):
+                model.validate(valid_env)
+
+print("Training finished after", str(args.maxEpisodes), "episodes and", str(total_step), "steps with avg reward", str(total_reward/args.maxExpisodes), "reward/episode")
