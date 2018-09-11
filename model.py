@@ -93,7 +93,7 @@ class Model(torch.nn.Module):
         total_loss = policy_loss + 0.25*critic_loss - 0.1*policy_entropy
 
         # Debugging
-        print("Policy:", policy_loss.data.cpu().numpy()[0], "\tCritic: ", critic_loss.data.cpu().numpy()[0], "\tTotalLoss: ", total_loss.data.cpu().numpy()[0])
+        print("Policy:", policy_loss.data.cpu().numpy(), "\tCritic: ", critic_loss.data.cpu().numpy(), "\tTotalLoss: ", total_loss.data.cpu().numpy())
 
 
         # Clears Gradients
@@ -106,6 +106,6 @@ class Model(torch.nn.Module):
         self.optimizer.step()
 
         # Returns values for summary writer
-        return policy_loss.data.cpu().numpy()[0], critic_loss.data.cpu().numpy()[0], total_loss.data.cpu().numpy()[0], replay_buffer.rewards.mean(), cross_entropy.data, advantage.data
+        return policy_loss.data.cpu().numpy(), critic_loss.data.cpu().numpy(), total_loss.data.cpu().numpy(), replay_buffer.rewards.mean(), cross_entropy.data, advantage.data
 
 

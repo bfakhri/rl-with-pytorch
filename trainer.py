@@ -79,7 +79,7 @@ class ReplayBuffer():
         self.action_probs[self.n] = act_prob
         self.actions[self.n] = act
         self.rewards[self.n] = r
-        self.dones[self.n] = done 
+        self.dones[self.n] = float(done)
         self.n += 1
 
     def discount(self, lambd):
