@@ -110,7 +110,7 @@ tb_writer.add_scalar('HyperParams/LR', args.learningRate, 0)
 tb_writer.add_scalar('HyperParams/Momentum', MOMENTUM, 0) 
 
 # Instantiate the model and optimizer
-model = model.Model(env.observation_space.shape, env.action_space.n, args.learningRate, MOMENTUM, args.cuda) 
+model = model.Model(env.observation_space.shape, env.action_space.n, args.learningRate, MOMENTUM, args.cuda, tb_writer=tb_writer) 
 
 # Training Limits
 MAX_EPISODES = 100000

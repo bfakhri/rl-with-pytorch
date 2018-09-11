@@ -6,7 +6,9 @@ import torch.nn.functional as F
 import torch.autograd as AG
 
 class Model(torch.nn.Module):
-    def __init__(self, obs_shape, act_size, LR, momentum, cuda):
+    def __init__(self, obs_shape, act_size, LR, momentum, cuda, tb_writer):
+        # Init super 
+        super(Model, self).__init__()
         # Number of possible actions
         self.act_size = act_size
         # Shape of the observations
@@ -33,6 +35,8 @@ class Model(torch.nn.Module):
         if(self.cuda_bool):
             self.cuda()
 
+        self.tb_writer = tb_writer
+        self.counter = 0
 
     def forward(self, x):
         """Takes in an observation and returns action probabilities and
@@ -73,9 +77,9 @@ class Model(torch.nn.Module):
         # Calculates the discounted reward
         #discounted_reward = replay_buffer.discount(0.99)
         # Performs a foward step through the model
-        act_probs, expected_rewards = self(AG.Variable(replay_buffer.observations))
+        act_probs, expected_values = self(AG.Variable(replay_buffer.observations))
         # Advantage (diff b/t the actual discounted reward and the expected)
-        advantage = AG.Variable(replay_buffer.discount(0.99)) - expected_rewards
+        advantage = AG.Variable(replay_buffer.discount(0.99)) - expected_values
         advantage_no_grad = advantage.detach()
         # Cross Entropy where p is true distribution and q is the predicted
         # cross_entropy = -(p*torch.log(q)).sum()
@@ -88,9 +92,9 @@ class Model(torch.nn.Module):
         critic_loss = (advantage**2).mean()
         # Sums the individual losses
         #total_loss = policy_loss + 0.25*critic_loss
-        #total_loss = critic_loss
+        total_loss = critic_loss
         #total_loss = policy_loss + 0.25*critic_loss - policy_entropy
-        total_loss = policy_loss + 0.25*critic_loss - 0.1*policy_entropy
+        #total_loss = policy_loss + 0.25*critic_loss - 0.1*policy_entropy
 
         # Debugging
         print("Policy:", policy_loss.data.cpu().numpy(), "\tCritic: ", critic_loss.data.cpu().numpy(), "\tTotalLoss: ", total_loss.data.cpu().numpy())
@@ -104,6 +108,14 @@ class Model(torch.nn.Module):
         torch.nn.utils.clip_grad_norm(self.parameters(), 40)
         # Applies the gradients
         self.optimizer.step()
+
+        # Output parameters of Model
+        for param in self.parameters():
+            print(param.data.cpu().numpy().mean())
+            #self.tb_writer.add_histogram('Model Params', param, bins=np.arange(-0.003, 0.003, 0.0001))
+            self.tb_writer.add_histogram('Model Params', param, bins='tensorflow', walltime=self.counter)
+            self.counter += 1
+
 
         # Returns values for summary writer
         return policy_loss.data.cpu().numpy(), critic_loss.data.cpu().numpy(), total_loss.data.cpu().numpy(), replay_buffer.rewards.mean(), cross_entropy.data, advantage.data
